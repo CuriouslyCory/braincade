@@ -6,6 +6,8 @@ runs:
     - uses: actions/setup-node@v5
       with:
         node-version-file: .nvmrc
+        # pnpm is installed in the next step; the store is cached below.
+        package-manager-cache: false
     - name: Install pnpm from packageManager
       shell: bash
       run: npm install -g "$(node -p "require('./package.json').packageManager")"
