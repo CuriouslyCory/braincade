@@ -10,9 +10,13 @@ export function Game({ ctx }: { ctx: GameContext }) {
   const [words, setWords] = useState<GameWord[] | null>(null);
   const [index, setIndex] = useState(0);
   const [correct, setCorrect] = useState(0);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    void ctx.words.next({ count: 5 }).then(setWords);
+    ctx.words
+      .next({ count: 5 })
+      .then(setWords)
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
   }, [ctx]);
 
   const word = words?.[index];
@@ -27,7 +31,8 @@ export function Game({ ctx }: { ctx: GameContext }) {
   return (
     <main className="game">
       <h1>__GAME_TITLE__</h1>
-      {!words && <p>Loading words…</p>}
+      {error && <p role="alert">Could not load words: {error}</p>}
+      {!words && !error && <p>Loading words…</p>}
       {words && !word && <p>All done!</p>}
       {word && (
         <>

@@ -6,22 +6,29 @@ import { colors } from '../theme';
 export default function SettingsScreen() {
   const { settings, profile, baseUrl, catalog, saveSettings, saveProfile, reload } = useHost();
   const [serverUrl, setServerUrl] = useState(settings.serverUrl);
-  const [name, setName] = useState(profile?.name ?? '');
-  const [interests, setInterests] = useState(profile?.interests.join(', ') ?? '');
-  const [showDrafts, setShowDrafts] = useState(profile?.showDrafts ?? false);
+  const [name, setName] = useState(profile.name);
+  const [interests, setInterests] = useState(profile.interests.join(', '));
+  const [showDrafts, setShowDrafts] = useState(profile.showDrafts);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
   async function save() {
-    await saveProfile({
-      name: name.trim(),
-      interests: interests
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-      showDrafts,
-    });
-    await saveSettings({ serverUrl: serverUrl.trim() });
-    setSaved(true);
+    setSaved(false);
+    setError('');
+    try {
+      await saveProfile({
+        name: name.trim(),
+        interests: interests
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+        showDrafts,
+      });
+      await saveSettings({ serverUrl: serverUrl.trim() });
+      setSaved(true);
+    } catch (e) {
+      setError(`Could not save: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   return (
@@ -66,6 +73,7 @@ export default function SettingsScreen() {
         </Pressable>
         {saved && <Text style={styles.saved}>Saved</Text>}
       </View>
+      {error !== '' && <Text style={styles.error}>{error}</Text>}
       <Text style={styles.muted}>
         Word progress and the rematch sheet are in the web app's Grown-ups page for now.
       </Text>
@@ -105,4 +113,5 @@ const styles = StyleSheet.create({
   secondary: { backgroundColor: colors.accent2 },
   buttonText: { color: '#222', fontWeight: '700' },
   saved: { color: colors.accent2 },
+  error: { color: colors.danger },
 });

@@ -226,6 +226,10 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.save-error {
+  color: var(--danger);
+}
+
 .saved {
   margin-left: 12px;
   color: var(--accent-2);

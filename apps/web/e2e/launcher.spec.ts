@@ -28,3 +28,14 @@ test('catalog.json publishes games and word lists for the mobile app', async ({ 
   expect(catalog.games.map((g: { id: string }) => g.id)).toContain('bridge-check');
   expect(catalog.wordLists.length).toBeGreaterThan(0);
 });
+
+test('grown-ups shows an error instead of failing silently when a profile is invalid', async ({
+  page,
+}) => {
+  await page.goto('/#/grown-ups');
+  const tooMany = Array.from({ length: 21 }, (_, i) => `topic${i}`).join(', ');
+  await page.getByLabel(/Interests/).fill(tooMany);
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('alert')).toContainText('Could not save');
+  await expect(page.getByText('Saved')).toHaveCount(0);
+});

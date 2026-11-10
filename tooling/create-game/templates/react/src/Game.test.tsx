@@ -26,4 +26,13 @@ describe('Game', () => {
     ]);
     await expect.poll(() => t.exited).toEqual({ score: 1 });
   });
+
+  it('shows an error when words cannot be loaded', async () => {
+    const t = createTestContext();
+    t.ctx.words.next = async () => {
+      throw new Error('host unavailable');
+    };
+    render(<Game ctx={t.ctx} />);
+    expect((await screen.findByRole('alert')).textContent).toContain('host unavailable');
+  });
 });

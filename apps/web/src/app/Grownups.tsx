@@ -18,6 +18,7 @@ export function Grownups() {
   const [mastery, setMastery] = useState<MasteryState | null>(null);
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const pool = useMemo(() => poolWords(platform.wordLists), []);
 
   useEffect(() => {
@@ -30,19 +31,27 @@ export function Grownups() {
   const summary = summarizeMastery(pool, mastery);
   const missed = missedWords(mastery, Date.now() - WEEK_MS);
   const titles = new Map(games.map((g) => [g.manifest.id, g.manifest.title]));
+  // Mastery is keyed by lowercase word; print the word as written in its list.
+  const displayWord = new Map(pool.map((w) => [w.key, w.word]));
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    await save({
-      name: String(data.get('name') ?? '').trim(),
-      interests: String(data.get('interests') ?? '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-      showDrafts: data.get('showDrafts') === 'on',
-    });
-    setSaved(true);
+    setSaveError('');
+    try {
+      await save({
+        name: String(data.get('name') ?? '').trim(),
+        interests: String(data.get('interests') ?? '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+        showDrafts: data.get('showDrafts') === 'on',
+      });
+      setSaved(true);
+    } catch {
+      setSaved(false);
+      setSaveError('Could not save. Use up to 20 interests, each 40 characters or fewer.');
+    }
   }
 
   function printRematch() {
@@ -55,7 +64,11 @@ export function Grownups() {
           blocks: [
             { type: 'heading', text: 'Rematch sheet', level: 1 },
             { type: 'text', text: 'Copy each word three times in your neatest writing.' },
-            { type: 'word-practice', words: missed.slice(0, 15), repeats: 3 },
+            {
+              type: 'word-practice',
+              words: missed.slice(0, 15).map((key) => displayWord.get(key) ?? key),
+              repeats: 3,
+            },
           ],
         },
       ],
@@ -86,6 +99,11 @@ export function Grownups() {
         </label>
         <button type="submit">Save</button>
         {saved && <span className="saved">Saved</span>}
+        {saveError && (
+          <p className="save-error" role="alert">
+            {saveError}
+          </p>
+        )}
       </form>
 
       <div className="card">

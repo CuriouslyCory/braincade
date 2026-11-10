@@ -45,6 +45,20 @@ describe('loadCatalog', () => {
     ).rejects.toThrow('Network request failed');
   });
 
+  it('gives up on a server that never answers and uses the cache', async () => {
+    const cache = createMemoryStore();
+    await loadCatalog({ baseUrl: 'https://x.test', fetchFn: ok(catalog), cache });
+    const hanging = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+        }),
+    ) as unknown as typeof fetch;
+    expect(
+      await loadCatalog({ baseUrl: 'https://x.test', fetchFn: hanging, cache, timeoutMs: 20 }),
+    ).toEqual({ catalog, source: 'cache' });
+  });
+
   it('rejects invalid catalogs and surfaces errors when nothing is cached', async () => {
     await expect(
       loadCatalog({

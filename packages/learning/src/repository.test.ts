@@ -60,6 +60,25 @@ describe('createLearnerRepository', () => {
     expect((await repo.getMastery()).words).toEqual({});
   });
 
+  it('drops individual corrupt word records and keeps the rest', async () => {
+    const good = {
+      box: 3,
+      correct: 2,
+      incorrect: 0,
+      lastResult: 'correct',
+      lastSeenAt: 1,
+      dueAt: 2,
+    };
+    const store = createMemoryStore({
+      'braincade:mastery': JSON.stringify({
+        version: 1,
+        words: { their: good, there: { box: 'two' }, because: { ...good, dueAt: undefined } },
+      }),
+    });
+    const repo = createLearnerRepository(store);
+    expect((await repo.getMastery()).words).toEqual({ their: good });
+  });
+
   it('scopes game data by game id and prefix', async () => {
     const store = createMemoryStore();
     const repo = createLearnerRepository(store, { prefix: 'test:' });

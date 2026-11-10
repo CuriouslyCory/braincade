@@ -150,6 +150,29 @@ describe('host bridge + game frame', () => {
     expect(await t.learner.getSessions()).toHaveLength(1);
   });
 
+  it('still exits when the session cannot be saved', async () => {
+    const learner = createLearnerRepository(createMemoryStore());
+    learner.recordSession = async () => {
+      throw new Error('QuotaExceededError');
+    };
+    let ctx!: GameContext;
+    const t = await run(
+      (_root, c) => {
+        ctx = c;
+        return undefined;
+      },
+      { learner },
+    );
+    await ctx.exit({ score: 1 });
+    await flush();
+    expect(t.onGameExit).toHaveBeenCalledOnce();
+    await expect(t.bridge.requestExit({ timeoutMs: 50 })).resolves.toBeUndefined();
+    expect(t.onError).toHaveBeenCalledWith({
+      code: 'storage',
+      message: 'Could not save the session: QuotaExceededError',
+    });
+  });
+
   it('rejects capabilities the platform does not have', async () => {
     let ctx!: GameContext;
     await run(

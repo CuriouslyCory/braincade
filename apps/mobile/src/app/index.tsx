@@ -13,7 +13,7 @@ export default function LauncherScreen() {
     catalog.status === 'ready'
       ? launcherEntries(
           catalog.catalog.games.map((manifest) => ({ manifest })),
-          { showDrafts: __DEV__ || (profile?.showDrafts ?? false), capabilities },
+          { showDrafts: __DEV__ || profile.showDrafts, capabilities },
         )
       : [];
 
@@ -43,7 +43,7 @@ export default function LauncherScreen() {
         }
         ListHeaderComponent={
           <Text style={styles.greeting}>
-            {profile?.name ? `Hey ${profile.name}!` : 'Pick a game'}
+            {profile.name ? `Hey ${profile.name}!` : 'Pick a game'}
           </Text>
         }
         ListEmptyComponent={

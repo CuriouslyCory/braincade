@@ -1,5 +1,5 @@
 import type { Catalog } from '@braincade/game-host';
-import type { LearnerProfile } from '@braincade/learning';
+import { type LearnerProfile, learnerProfileSchema } from '@braincade/learning';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import {
@@ -9,6 +9,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { loadCatalog } from './lib/catalog';
@@ -24,7 +25,7 @@ type CatalogState =
 interface HostState {
   baseUrl: string | null;
   settings: Settings;
-  profile: LearnerProfile | null;
+  profile: LearnerProfile;
   catalog: CatalogState;
   reload(): Promise<void>;
   saveSettings(settings: Settings): Promise<void>;
@@ -51,11 +52,19 @@ export function HostProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void readSettings(AsyncStorage).then(setSettings);
-    void learner.getProfile().then(setProfile);
+    void learner
+      .getProfile()
+      .then(setProfile)
+      .catch(() => setProfile(learnerProfileSchema.parse({})));
   }, []);
 
+  // Overlapping reloads (URL change, pull-to-refresh) must not let an older
+  // response overwrite a newer one.
+  const latestReload = useRef(0);
   const reload = useCallback(async () => {
     if (!settings) return;
+    const requestId = ++latestReload.current;
+    const isCurrent = () => requestId === latestReload.current;
     if (!baseUrl) {
       setCatalog({ status: 'error', message: 'Set the Braincade server URL in Grown-ups.' });
       return;
@@ -63,8 +72,9 @@ export function HostProvider({ children }: { children: ReactNode }) {
     setCatalog({ status: 'loading' });
     try {
       const loaded = await loadCatalog({ baseUrl, fetchFn: fetch, cache: AsyncStorage });
-      setCatalog({ status: 'ready', ...loaded });
+      if (isCurrent()) setCatalog({ status: 'ready', ...loaded });
     } catch (error) {
+      if (!isCurrent()) return;
       setCatalog({
         status: 'error',
         message: `Could not reach ${baseUrl}: ${error instanceof Error ? error.message : String(error)}`,
@@ -76,9 +86,11 @@ export function HostProvider({ children }: { children: ReactNode }) {
     void reload();
   }, [reload]);
 
+  // Wait for both settings and profile so screens never seed forms from a missing profile.
   const value = useMemo<HostState | null>(
     () =>
-      settings && {
+      settings &&
+      profile && {
         baseUrl,
         settings,
         profile,

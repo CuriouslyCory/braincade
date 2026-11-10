@@ -3,6 +3,7 @@ import {
   type AttemptInput,
   applyAttempt,
   emptyMastery,
+  MASTERED_BOX,
   type MasteryState,
   type WordStats,
 } from './mastery';
@@ -49,12 +50,27 @@ export const sessionRecordSchema = z.object({
 
 export type SessionRecord = z.infer<typeof sessionRecordSchema>;
 
+const wordStatsSchema = z.object({
+  box: z.number().int().min(0).max(MASTERED_BOX),
+  correct: z.number().int().nonnegative(),
+  incorrect: z.number().int().nonnegative(),
+  lastResult: z.enum(['correct', 'incorrect']),
+  lastSeenAt: z.number(),
+  dueAt: z.number(),
+  lastResponse: z.string().optional(),
+});
+
+/** Invalid word entries are dropped individually so one bad record doesn't reset all progress. */
 const masteryStateSchema = z.object({
   version: z.literal(1),
-  words: z.record(
-    z.string(),
-    z.custom<WordStats>((v) => typeof v === 'object' && v !== null),
-  ),
+  words: z.record(z.string(), z.unknown()).transform((words) => {
+    const valid: Record<string, WordStats> = {};
+    for (const [key, value] of Object.entries(words)) {
+      const parsed = wordStatsSchema.safeParse(value);
+      if (parsed.success) valid[key] = parsed.data;
+    }
+    return valid;
+  }),
 });
 
 const MAX_SESSIONS = 500;

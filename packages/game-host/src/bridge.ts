@@ -103,16 +103,26 @@ export function createHostBridge(options: HostBridgeOptions): HostBridge {
   async function recordSession() {
     if (!session.id || session.recorded) return;
     session.recorded = true;
-    await learner.recordSession({
-      id: session.id,
-      gameId: game.id,
-      gameVersion: game.version,
-      startedAt: session.startedAt,
-      endedAt: now(),
-      attempts: session.attempts,
-      correct: session.correct,
-      ...(session.score === undefined ? {} : { score: session.score }),
-    });
+    try {
+      await learner.recordSession({
+        id: session.id,
+        gameId: game.id,
+        gameVersion: game.version,
+        startedAt: session.startedAt,
+        endedAt: now(),
+        attempts: session.attempts,
+        correct: session.correct,
+        ...(session.score === undefined ? {} : { score: session.score }),
+      });
+    } catch (error) {
+      // A failed write (storage full, AsyncStorage error) must never block exiting the game.
+      // Allow a later call (e.g. dispose) to retry.
+      session.recorded = false;
+      options.onError?.({
+        code: 'storage',
+        message: `Could not save the session: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    }
   }
 
   const unsupported = (capability: Capability) =>

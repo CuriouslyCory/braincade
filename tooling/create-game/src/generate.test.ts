@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { GAME_ID_PATTERN, manifestFromPackageJson, SKILLS } from '@braincade/game-sdk';
@@ -55,6 +55,29 @@ describe('generateGame', () => {
     generator.generateGame({ ...base, id: 'taken' });
     expect(() => generator.generateGame({ ...base, id: 'taken' })).toThrow(/already exists/);
     expect(existsSync(path.join(gamesDir, 'x'))).toBe(false);
+  });
+
+  it('inserts titles literally, including $ sequences', () => {
+    const { dir } = generator.generateGame({
+      id: 'cash',
+      template: 'react',
+      gamesDir,
+      title: 'Cash $& Carry $1',
+    });
+    expect(readFileSync(path.join(dir, 'README.md'), 'utf8')).toContain('# Cash $& Carry $1');
+    expect(JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8')).braincade.title).toBe(
+      'Cash $& Carry $1',
+    );
+  });
+
+  it('removes the partial game when a template step fails', () => {
+    const templatesDir = path.join(gamesDir, '_templates');
+    mkdirSync(path.join(templatesDir, 'react'), { recursive: true });
+    writeFileSync(path.join(templatesDir, 'react', 'package.json'), '{ not json');
+    expect(() =>
+      generator.generateGame({ id: 'broken', template: 'react', gamesDir, templatesDir }),
+    ).toThrow();
+    expect(existsSync(path.join(gamesDir, 'broken'))).toBe(false);
   });
 
   it('stays in sync with the SDK manifest rules', () => {

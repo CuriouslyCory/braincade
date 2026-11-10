@@ -24,14 +24,20 @@ export async function loadCatalog({
   baseUrl,
   fetchFn,
   cache,
+  timeoutMs = 10_000,
 }: {
   baseUrl: string;
   fetchFn: typeof fetch;
   cache: KeyValueStore;
+  /** React Native fetch never times out on its own (e.g. a mistyped LAN IP). */
+  timeoutMs?: number;
 }): Promise<LoadedCatalog> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetchFn(`${baseUrl}/catalog.json`, {
       headers: { 'Cache-Control': 'no-cache' },
+      signal: controller.signal,
     });
     if (!response.ok) throw new Error(`catalog.json returned ${response.status}`);
     const catalog = parseCatalog(await response.json());
@@ -51,5 +57,7 @@ export async function loadCatalog({
       }
     }
     throw error;
+  } finally {
+    clearTimeout(timer);
   }
 }

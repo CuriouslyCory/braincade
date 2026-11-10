@@ -1,4 +1,12 @@
-import { cpSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,6 +28,8 @@ export interface GenerateOptions {
   description?: string;
   icon?: string;
   skills?: string[];
+  /** Defaults to the bundled templates; tests point this elsewhere. */
+  templatesDir?: string;
 }
 
 export function titleFromId(id: string): string {
@@ -62,13 +72,34 @@ export function generateGame(options: GenerateOptions): { dir: string; files: st
     __GAME_TITLE__: title,
   };
 
-  const source = path.join(templatesDir, template);
+  const source = path.join(options.templatesDir ?? templatesDir, template);
   cpSync(source, dir, { recursive: true });
+  try {
+    return {
+      dir,
+      files: fillTemplate(dir, { ...options, title, description, skills }, replacements),
+    };
+  } catch (error) {
+    // Never leave a half-written game behind; it would block the next attempt.
+    rmSync(dir, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+function fillTemplate(
+  dir: string,
+  options: GenerateOptions & { title: string; description: string; skills: string[] },
+  replacements: Record<string, string>,
+): string[] {
+  const { id, template, title, description, skills } = options;
   const files = listFiles(dir);
   for (const file of files) {
     const full = path.join(dir, file);
     let text = readFileSync(full, 'utf8');
-    for (const [token, value] of Object.entries(replacements)) text = text.replaceAll(token, value);
+    for (const [token, value] of Object.entries(replacements)) {
+      // A function replacer inserts the value literally (no `$&`-style patterns).
+      text = text.replaceAll(token, () => value);
+    }
     if (file === 'package.json') {
       const pkg = JSON.parse(text) as Record<string, unknown> & {
         braincade: Record<string, unknown>;
@@ -87,5 +118,5 @@ export function generateGame(options: GenerateOptions): { dir: string; files: st
     }
     writeFileSync(full, text);
   }
-  return { dir, files: files.sort() };
+  return files.sort();
 }
