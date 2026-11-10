@@ -11,8 +11,17 @@ import {
 } from './protocol';
 import type { Transport } from './transport';
 
+export interface RequestOptions {
+  /** Override the client's default timeout. `null` waits indefinitely (user-driven dialogs). */
+  timeoutMs?: number | null;
+}
+
 export interface HostClient {
-  request<M extends MethodName>(method: M, params: MethodParams<M>): Promise<MethodResults[M]>;
+  request<M extends MethodName>(
+    method: M,
+    params: MethodParams<M>,
+    options?: RequestOptions,
+  ): Promise<MethodResults[M]>;
   notify(name: FrameNotification, data?: unknown): void;
   onEvent(name: HostEvent, listener: () => void): () => void;
   dispose(): void;
@@ -29,7 +38,7 @@ export function createHostClient(
     {
       resolve: (value: unknown) => void;
       reject: (error: Error) => void;
-      timer: ReturnType<typeof setTimeout>;
+      timer: ReturnType<typeof setTimeout> | undefined;
     }
   >();
   const listeners = new Map<HostEvent, Set<() => void>>();
@@ -51,13 +60,17 @@ export function createHostClient(
   });
 
   return {
-    request(method, params) {
+    request(method, params, options = {}) {
       const id = nextId++;
+      const limit = options.timeoutMs === undefined ? timeoutMs : options.timeoutMs;
       return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
-          pending.delete(id);
-          reject(new HostError('timeout', `Host did not answer "${method}" in ${timeoutMs}ms`));
-        }, timeoutMs);
+        const timer =
+          limit === null
+            ? undefined
+            : setTimeout(() => {
+                pending.delete(id);
+                reject(new HostError('timeout', `Host did not answer "${method}" in ${limit}ms`));
+              }, limit);
         pending.set(id, { resolve: resolve as (value: unknown) => void, reject, timer });
         transport.send({
           channel: CHANNEL,

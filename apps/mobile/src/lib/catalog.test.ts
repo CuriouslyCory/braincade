@@ -34,6 +34,17 @@ describe('loadCatalog', () => {
     });
   });
 
+  it('does not use a catalog cached from a different server', async () => {
+    const cache = createMemoryStore();
+    await loadCatalog({ baseUrl: 'https://prod.test', fetchFn: ok(catalog), cache });
+    const offline = vi.fn(async () => {
+      throw new TypeError('Network request failed');
+    }) as unknown as typeof fetch;
+    await expect(
+      loadCatalog({ baseUrl: 'https://preview.test', fetchFn: offline, cache }),
+    ).rejects.toThrow('Network request failed');
+  });
+
   it('rejects invalid catalogs and surfaces errors when nothing is cached', async () => {
     await expect(
       loadCatalog({

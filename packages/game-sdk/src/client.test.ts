@@ -54,6 +54,31 @@ describe('createHostClient', () => {
     vi.useRealTimers();
   });
 
+  it('lets a request override or disable the timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const [frameSide] = createMemoryTransportPair();
+      const client = createHostClient(frameSide, { timeoutMs: 50 });
+      let settled = false;
+      const longer = client.request('speech.stop', {}, { timeoutMs: 500 }).catch((e: unknown) => e);
+      void client
+        .request('speech.stop', {}, { timeoutMs: null })
+        .finally(() => {
+          settled = true;
+        })
+        .catch(() => {});
+      await vi.advanceTimersByTimeAsync(100);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(500);
+      expect(await longer).toMatchObject({ code: 'timeout' });
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(settled).toBe(false);
+      client.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('delivers host events and ignores foreign messages', async () => {
     const [frameSide, hostSide] = createMemoryTransportPair();
     const client = createHostClient(frameSide);

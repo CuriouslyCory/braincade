@@ -54,6 +54,14 @@ export interface GameContext {
   exit(result?: EndResult): Promise<void>;
 }
 
+/**
+ * Speech resolves when the utterance finishes, so allow for its duration
+ * (~150 ms per character at rate 1) on top of the normal round trip.
+ */
+export function speechTimeoutMs(text: string, rate = 1): number {
+  return 10_000 + Math.ceil((text.length * 150) / rate);
+}
+
 export function createGameContext(
   client: HostClient,
   session: SessionInfo,
@@ -75,14 +83,19 @@ export function createGameContext(
     },
     speech: {
       speak: async (text, options = {}) => {
-        await client.request('speech.speak', { text, ...options });
+        await client.request(
+          'speech.speak',
+          { text, ...options },
+          { timeoutMs: speechTimeoutMs(text, options.rate) },
+        );
       },
       stop: async () => {
         await client.request('speech.stop', {});
       },
     },
     print: async (document) => {
-      await client.request('print.document', { document });
+      // The print dialog stays open until the user closes it, so never time out.
+      await client.request('print.document', { document }, { timeoutMs: null });
     },
     storage: {
       get: async <T>(key: string) =>

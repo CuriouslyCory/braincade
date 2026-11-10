@@ -1,6 +1,6 @@
 export type { AttemptInput, WordStatus } from '@braincade/learning';
 export type { PrintableBlock, PrintableDocumentInput } from '@braincade/printables';
-export { createHostClient, type HostClient } from './client';
+export { createHostClient, type HostClient, type RequestOptions } from './client';
 export {
   createGameContext,
   type GameContext,

@@ -3,6 +3,12 @@ import type { KeyValueStore } from '@braincade/learning';
 
 const CACHE_KEY = 'braincade:catalog';
 
+/** The cached catalog remembers which server it came from; a different server never uses it. */
+interface CachedCatalog {
+  baseUrl: string;
+  catalog: unknown;
+}
+
 export interface LoadedCatalog {
   catalog: Catalog;
   source: 'network' | 'cache';
@@ -11,7 +17,8 @@ export interface LoadedCatalog {
 /**
  * Fetch catalog.json from the web deployment, falling back to the last good
  * copy so the launcher still lists games offline. (Games themselves load from
- * the same server, so offline play needs the server reachable.)
+ * the same server, so offline play needs the server reachable.) The cache only
+ * applies to the server it was fetched from.
  */
 export async function loadCatalog({
   baseUrl,
@@ -28,13 +35,17 @@ export async function loadCatalog({
     });
     if (!response.ok) throw new Error(`catalog.json returned ${response.status}`);
     const catalog = parseCatalog(await response.json());
-    await cache.setItem(CACHE_KEY, JSON.stringify(catalog));
+    const entry: CachedCatalog = { baseUrl, catalog };
+    await cache.setItem(CACHE_KEY, JSON.stringify(entry));
     return { catalog, source: 'network' };
   } catch (error) {
     const cached = await cache.getItem(CACHE_KEY);
     if (cached) {
       try {
-        return { catalog: parseCatalog(JSON.parse(cached)), source: 'cache' };
+        const entry = JSON.parse(cached) as Partial<CachedCatalog>;
+        if (entry.baseUrl === baseUrl) {
+          return { catalog: parseCatalog(entry.catalog), source: 'cache' };
+        }
       } catch {
         // fall through to the original error
       }
