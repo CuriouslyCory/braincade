@@ -1,0 +1,25 @@
+{
+  "name": "@braincade/game-host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@braincade/game-sdk": "workspace:*",
+    "@braincade/learning": "workspace:*",
+    "@braincade/printables": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@braincade/tsconfig": "workspace:*",
+    "jsdom": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

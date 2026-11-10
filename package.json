@@ -1,0 +1,26 @@
+{
+  "name": "braincade",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "turbo run dev --filter=@braincade/web",
+    "dev:mobile": "turbo run dev --filter=@braincade/mobile",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "e2e": "turbo run e2e",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "check": "biome check . && turbo run typecheck test build",
+    "new:game": "node tooling/create-game/src/cli.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.6",
+    "turbo": "^2.11.10",
+    "typescript": "catalog:"
+  }
+}

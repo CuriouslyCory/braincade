@@ -1,0 +1,38 @@
+{
+  "name": "@braincade/game-template-react",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "braincade": {
+    "id": "template-react",
+    "title": "Template",
+    "description": "Template",
+    "engine": "dom",
+    "skills": [
+      "spelling"
+    ],
+    "requires": [],
+    "status": "draft"
+  },
+  "dependencies": {
+    "@braincade/game-sdk": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@braincade/tsconfig": "workspace:*",
+    "@testing-library/react": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "jsdom": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

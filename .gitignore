@@ -1,0 +1,25 @@
+node_modules/
+dist/
+dist-e2e/
+coverage/
+.turbo/
+*.tsbuildinfo
+.env*.local
+.DS_Store
+
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/
+
+# Expo
+apps/mobile/.expo/
+apps/mobile/expo-env.d.ts
+apps/mobile/ios/
+apps/mobile/android/
+apps/mobile/web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
