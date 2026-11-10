@@ -1,0 +1,34 @@
+{
+  "name": "@braincade/game-template-three",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "braincade": {
+    "id": "template-three",
+    "title": "Template",
+    "description": "Template",
+    "engine": "three",
+    "skills": [
+      "spelling"
+    ],
+    "requires": [],
+    "status": "draft"
+  },
+  "dependencies": {
+    "@braincade/game-sdk": "workspace:*",
+    "three": "catalog:"
+  },
+  "devDependencies": {
+    "@braincade/tsconfig": "workspace:*",
+    "@types/three": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

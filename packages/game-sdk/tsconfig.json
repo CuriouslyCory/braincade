@@ -1,0 +1,4 @@
+{
+  "extends": "@braincade/tsconfig/dom.json",
+  "include": ["src"]
+}

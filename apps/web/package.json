@@ -1,0 +1,38 @@
+{
+  "name": "@braincade/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --configLoader runner --host",
+    "build": "vite build --configLoader runner",
+    "build:e2e": "BRAINCADE_E2E_FIXTURES=1 vite build --configLoader runner --outDir dist-e2e",
+    "preview": "vite preview --configLoader runner",
+    "preview:e2e": "vite preview --configLoader runner --outDir dist-e2e",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "test": "vitest run",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@braincade/content": "workspace:*",
+    "@braincade/game-host": "workspace:*",
+    "@braincade/game-sdk": "workspace:*",
+    "@braincade/learning": "workspace:*",
+    "@braincade/printables": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-router": "^8.5.1"
+  },
+  "devDependencies": {
+    "@braincade/tsconfig": "workspace:*",
+    "@playwright/test": "^1.65.0",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "^6.3.0",
+    "jsdom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "^8.3.7",
+    "vitest": "catalog:"
+  }
+}

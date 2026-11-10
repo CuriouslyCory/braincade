@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Braincade",
+    "slug": "braincade",
+    "version": "0.1.0",
+    "orientation": "default",
+    "scheme": "braincade",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#15132b",
+    "ios": {
+      "bundleIdentifier": "com.curiouslycory.braincade",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
+    },
+    "android": {
+      "package": "com.curiouslycory.braincade",
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": ["expo-router", "expo-status-bar"]
+  }
+}
