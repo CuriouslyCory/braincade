@@ -26,6 +26,33 @@ export interface SessionInfo {
 /** A word chosen for practice, with where the learner stands on it. */
 export type GameWord = Omit<SelectedWord, 'key'>;
 
+/** Longest image data URL accepted over the protocol (~3 MB of JPEG). */
+export const MAX_IMAGE_DATA_URL_LENGTH = 4_000_000;
+
+export const imageDataUrlSchema = z
+  .string()
+  .max(MAX_IMAGE_DATA_URL_LENGTH)
+  .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/, 'must be a base64 image data URL');
+
+/** A photo taken by the host's camera, downscaled so it can cross the bridge. */
+export const capturedImageSchema = z.object({
+  /** `data:image/jpeg;base64,...` */
+  image: imageDataUrlSchema,
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+});
+export type CapturedImage = z.infer<typeof capturedImageSchema>;
+
+/**
+ * What the host's handwriting reader saw. Words are in reading order and keep the
+ * writer's spelling: the reader must not correct mistakes. Words it could not read
+ * are marked `legible: false` (their `text` is a best guess, possibly empty).
+ */
+export const handwritingReadingSchema = z.object({
+  words: z.array(z.object({ text: z.string().max(60), legible: z.boolean() })).max(200),
+});
+export type HandwritingReading = z.infer<typeof handwritingReadingSchema>;
+
 export interface EndResult {
   /** Game-defined score, stored with the session history. */
   score?: number;
@@ -53,6 +80,14 @@ export const methodParamSchemas = {
     score: z.number().optional(),
     summary: z.string().max(500).optional(),
   }),
+  'camera.capture': z.object({
+    /** Short instruction the host shows while the camera is open ("Snap your sentence"). */
+    prompt: z.string().max(200).optional(),
+    facing: z.enum(['environment', 'user']).default('environment'),
+    /** Longest side of the returned image, in pixels. */
+    maxSize: z.number().int().min(320).max(2048).default(1600),
+  }),
+  'handwriting.read': z.object({ image: imageDataUrlSchema }),
 } as const;
 
 export type MethodName = keyof typeof methodParamSchemas;
@@ -69,6 +104,9 @@ export interface MethodResults {
   'storage.get': unknown;
   'storage.set': null;
   'session.end': null;
+  /** `null` when the learner closed the camera without taking a photo. */
+  'camera.capture': CapturedImage | null;
+  'handwriting.read': HandwritingReading;
 }
 
 export const HOST_EVENTS = ['pause', 'resume', 'exit'] as const;

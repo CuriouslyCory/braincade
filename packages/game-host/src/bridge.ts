@@ -1,10 +1,14 @@
 import {
   type Capability,
+  type CapturedImage,
   CHANNEL,
+  capturedImageSchema,
   type ErrorCode,
   frameMessageSchema,
   type GameManifest,
+  type HandwritingReading,
   HostError,
+  handwritingReadingSchema,
   isMethodName,
   type MethodName,
   type MethodResults,
@@ -28,6 +32,20 @@ export interface PrintCapability {
   print(document: PrintableDocument): Promise<void>;
 }
 
+export interface CameraCapability {
+  /** Show the host's camera UI. Resolve `null` when the learner cancels. */
+  capture(options: {
+    prompt?: string;
+    facing: 'environment' | 'user';
+    maxSize: number;
+  }): Promise<CapturedImage | null>;
+}
+
+export interface HandwritingCapability {
+  /** Read the handwriting in an image data URL, keeping the writer's spelling. */
+  read(image: string): Promise<HandwritingReading>;
+}
+
 /** What each platform (web, mobile) provides to run games. */
 export interface HostPlatform {
   platform: Platform;
@@ -36,17 +54,21 @@ export interface HostPlatform {
   wordLists: readonly WordList[];
   speech?: SpeechCapability;
   printer?: PrintCapability;
+  camera?: CameraCapability;
+  handwriting?: HandwritingCapability;
   now?: () => number;
   random?: () => number;
   newId?: () => string;
 }
 
 export function platformCapabilities(
-  platform: Pick<HostPlatform, 'speech' | 'printer'>,
+  platform: Pick<HostPlatform, 'speech' | 'printer' | 'camera' | 'handwriting'>,
 ): Capability[] {
   const caps: Capability[] = ['storage'];
   if (platform.speech) caps.push('speech');
   if (platform.printer) caps.push('print');
+  if (platform.camera) caps.push('camera');
+  if (platform.handwriting) caps.push('handwriting');
   return caps;
 }
 
@@ -82,7 +104,7 @@ type Handler<M extends MethodName> = (params: ParsedMethodParams<M>) => Promise<
  * recorded even if a game never calls exit().
  */
 export function createHostBridge(options: HostBridgeOptions): HostBridge {
-  const { transport, game, learner, speech, printer } = options;
+  const { transport, game, learner, speech, printer, camera, handwriting } = options;
   const now = options.now ?? Date.now;
   const newId = options.newId ?? defaultId;
   const capabilities = platformCapabilities(options);
@@ -184,6 +206,19 @@ export function createHostBridge(options: HostBridgeOptions): HostBridge {
     'storage.set': async ({ key, value }) => {
       await learner.gameData(game.id).set(key, value);
       return null;
+    },
+    'camera.capture': async ({ prompt, facing, maxSize }) => {
+      if (!camera) throw unsupported('camera');
+      const photo = await camera.capture({
+        ...(prompt === undefined ? {} : { prompt }),
+        facing,
+        maxSize,
+      });
+      return photo ? capturedImageSchema.parse(photo) : null;
+    },
+    'handwriting.read': async ({ image }) => {
+      if (!handwriting) throw unsupported('handwriting');
+      return handwritingReadingSchema.parse(await handwriting.read(image));
     },
     'session.end': async ({ score }) => {
       if (score !== undefined) session.score = score;
