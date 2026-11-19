@@ -19,7 +19,10 @@
       "handwriting",
       "spelling"
     ],
-    "requires": [],
+    "requires": [
+      "camera",
+      "handwriting"
+    ],
     "status": "draft",
     "icon": "🤖"
   },

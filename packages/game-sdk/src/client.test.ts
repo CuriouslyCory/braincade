@@ -98,4 +98,13 @@ describe('createHostClient', () => {
     client.dispose();
     await expect(pending).rejects.toMatchObject({ code: 'internal' });
   });
+
+  it('does not leave abandoned requests as unhandled rejections on dispose', async () => {
+    // Vitest fails the run on an unhandled rejection, so this test needs no assertion of its own.
+    const [frameSide] = createMemoryTransportPair();
+    const client = createHostClient(frameSide);
+    void client.request('speech.speak', { text: 'hi' });
+    client.dispose();
+    await new Promise((r) => setTimeout(r, 10));
+  });
 });

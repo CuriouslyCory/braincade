@@ -39,6 +39,7 @@ export function createHostClient(
       resolve: (value: unknown) => void;
       reject: (error: Error) => void;
       timer: ReturnType<typeof setTimeout> | undefined;
+      promise?: Promise<unknown>;
     }
   >();
   const listeners = new Map<HostEvent, Set<() => void>>();
@@ -63,7 +64,7 @@ export function createHostClient(
     request(method, params, options = {}) {
       const id = nextId++;
       const limit = options.timeoutMs === undefined ? timeoutMs : options.timeoutMs;
-      return new Promise((resolve, reject) => {
+      const promise = new Promise<MethodResults[typeof method]>((resolve, reject) => {
         const timer =
           limit === null
             ? undefined
@@ -81,6 +82,9 @@ export function createHostClient(
           params,
         });
       });
+      const entry = pending.get(id);
+      if (entry) entry.promise = promise;
+      return promise;
     },
     notify(name, data) {
       transport.send({ channel: CHANNEL, v: PROTOCOL_VERSION, type: 'notify', name, data });
@@ -95,6 +99,9 @@ export function createHostClient(
       stop();
       for (const [, entry] of pending) {
         clearTimeout(entry.timer);
+        // The game is being torn down, so a fire-and-forget call (`void ctx.speech.speak(...)`)
+        // must not surface as an unhandled rejection. Callers that await still see the error.
+        void entry.promise?.catch(() => {});
         entry.reject(new HostError('internal', 'Client disposed'));
       }
       pending.clear();

@@ -8,8 +8,9 @@ test('launcher lists playable games and disables ones this device cannot run', a
   await expect(playable).toBeVisible();
   await expect(playable).toContainText('Bridge Check');
 
-  const blocked = page.locator('.game-card.disabled[data-game-id="needs-camera"]');
-  await expect(blocked).toContainText('Needs camera');
+  // vite preview has no /api/handwriting, so the handwriting probe says unavailable.
+  const blocked = page.locator('.game-card.disabled[data-game-id="needs-handwriting"]');
+  await expect(blocked).toContainText('Needs handwriting');
 });
 
 test('unknown game ids show a friendly page', async ({ page }) => {

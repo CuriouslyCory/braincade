@@ -1,14 +1,17 @@
 import { launcherEntries, platformCapabilities } from '@braincade/game-host';
 import { Link, Stack } from 'expo-router';
+import { useMemo } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { nativePlatform } from '../native-platform';
 import { useHost } from '../state';
 import { colors } from '../theme';
 
-const capabilities = platformCapabilities(nativePlatform([]));
-
 export default function LauncherScreen() {
-  const { catalog, profile, reload } = useHost();
+  const { catalog, handwriting, profile, reload } = useHost();
+  const capabilities = useMemo(
+    () => platformCapabilities(nativePlatform([], handwriting)),
+    [handwriting],
+  );
   const entries =
     catalog.status === 'ready'
       ? launcherEntries(

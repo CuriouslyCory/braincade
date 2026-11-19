@@ -4,6 +4,9 @@
   "installCommand": "npm install -g \"$(node -p \"require('../../package.json').packageManager\")\" && pnpm install --frozen-lockfile",
   "buildCommand": "cd ../.. && pnpm turbo run build --filter=@braincade/web",
   "outputDirectory": "dist",
+  "functions": {
+    "api/handwriting.ts": { "maxDuration": 60 }
+  },
   "headers": [
     {
       "source": "/catalog.json",

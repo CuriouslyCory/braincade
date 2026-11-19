@@ -1,4 +1,8 @@
-import type { Catalog } from '@braincade/game-host';
+import {
+  type Catalog,
+  createHandwritingService,
+  type HandwritingCapability,
+} from '@braincade/game-host';
 import { type LearnerProfile, learnerProfileSchema } from '@braincade/learning';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -27,6 +31,8 @@ interface HostState {
   settings: Settings;
   profile: LearnerProfile;
   catalog: CatalogState;
+  /** The server's handwriting reader, or null until a probe finds it configured. */
+  handwriting: HandwritingCapability | null;
   reload(): Promise<void>;
   saveSettings(settings: Settings): Promise<void>;
   saveProfile(patch: Partial<LearnerProfile>): Promise<void>;
@@ -38,6 +44,7 @@ export function HostProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [profile, setProfile] = useState<LearnerProfile | null>(null);
   const [catalog, setCatalog] = useState<CatalogState>({ status: 'loading' });
+  const [handwriting, setHandwriting] = useState<HandwritingCapability | null>(null);
 
   const baseUrl = useMemo(
     () =>
@@ -59,17 +66,23 @@ export function HostProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Overlapping reloads (URL change, pull-to-refresh) must not let an older
-  // response overwrite a newer one.
+  // response overwrite a newer one. Each reload also re-probes the server's
+  // handwriting reader, alongside the catalog.
   const latestReload = useRef(0);
   const reload = useCallback(async () => {
     if (!settings) return;
     const requestId = ++latestReload.current;
     const isCurrent = () => requestId === latestReload.current;
+    setHandwriting(null);
     if (!baseUrl) {
       setCatalog({ status: 'error', message: 'Set the Braincade server URL in Grown-ups.' });
       return;
     }
     setCatalog({ status: 'loading' });
+    const service = createHandwritingService(baseUrl, { fetch });
+    void service.available().then((ok) => {
+      if (ok && isCurrent()) setHandwriting(service);
+    });
     try {
       const loaded = await loadCatalog({ baseUrl, fetchFn: fetch, cache: AsyncStorage });
       if (isCurrent()) setCatalog({ status: 'ready', ...loaded });
@@ -95,6 +108,7 @@ export function HostProvider({ children }: { children: ReactNode }) {
         settings,
         profile,
         catalog,
+        handwriting,
         reload,
         saveSettings: async (next) => {
           await writeSettings(AsyncStorage, next);
@@ -104,7 +118,7 @@ export function HostProvider({ children }: { children: ReactNode }) {
           setProfile(await learner.saveProfile(patch));
         },
       },
-    [baseUrl, catalog, profile, reload, settings],
+    [baseUrl, catalog, handwriting, profile, reload, settings],
   );
 
   return value ? <HostContext.Provider value={value}>{children}</HostContext.Provider> : null;

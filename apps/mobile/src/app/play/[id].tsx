@@ -18,7 +18,10 @@ type GameWebView = WebView<object>;
 
 export default function PlayScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { catalog, baseUrl } = useHost();
+  const { catalog, baseUrl, handwriting } = useHost();
+  // Keep the capabilities the launcher offered: a reader probe finishing mid-game
+  // must not re-create the bridge under a running game.
+  const [launchHandwriting] = useState(handwriting);
   const loaded = catalog.status === 'ready' ? catalog.catalog : null;
   const game = loaded?.games.find((g) => g.id === id);
   const webViewRef = useRef<GameWebView>(null);
@@ -33,7 +36,7 @@ export default function PlayScreen() {
       webViewRef.current?.injectJavaScript(script),
     );
     const bridge = createHostBridge({
-      ...nativePlatform(loaded.wordLists),
+      ...nativePlatform(loaded.wordLists, launchHandwriting),
       transport,
       game,
       onReady: () => setState('running'),
@@ -56,7 +59,7 @@ export default function PlayScreen() {
       bridgeRef.current = null;
       setBridgeReady(false);
     };
-  }, [game, loaded]);
+  }, [game, launchHandwriting, loaded]);
 
   const exit = useCallback(async () => {
     await bridgeRef.current?.bridge.requestExit();
