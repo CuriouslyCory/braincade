@@ -170,6 +170,9 @@ export function Game({ ctx }: { ctx: GameContext }) {
   /** Attempts the host couldn't save yet; sent again with the next one, and before exit. */
   const unsaved = useRef<AttemptInput[]>([]);
   const [unsavedCount, setUnsavedCount] = useState(0);
+  const [finishing, setFinishing] = useState(false);
+  /** The last retry on Finish failed: say so, and let a second tap leave anyway. */
+  const [saveFailed, setSaveFailed] = useState(false);
 
   const canSpeak = ctx.has('speech');
   const current = sentences[index];
@@ -302,7 +305,18 @@ export function Game({ ctx }: { ctx: GameContext }) {
   }
 
   async function finish(finalScore?: number) {
-    await saveProgress();
+    if (finishing) return;
+    setFinishing(true);
+    if (!saveFailed) {
+      await saveProgress();
+      if (unsaved.current.length > 0) {
+        if (alive.current) {
+          setSaveFailed(true);
+          setFinishing(false);
+        }
+        return;
+      }
+    }
     await ctx.exit(finalScore === undefined ? {} : { score: finalScore });
   }
 
@@ -311,7 +325,12 @@ export function Game({ ctx }: { ctx: GameContext }) {
   const totalWords = finished.reduce((sum, r) => sum + r.comparison.counts.total, 0);
 
   const finishButton = (finalScore?: number) => (
-    <button type="button" className="btn btn-go" onClick={() => void finish(finalScore)}>
+    <button
+      type="button"
+      className="btn btn-go"
+      disabled={finishing}
+      onClick={() => void finish(finalScore)}
+    >
       Finish
     </button>
   );
@@ -516,7 +535,9 @@ export function Game({ ctx }: { ctx: GameContext }) {
           </p>
           {unsavedCount > 0 && (
             <p className="notice" role="alert" data-testid="unsaved-progress">
-              Some answers couldn't be saved yet. The robot will try again when you finish.
+              {saveFailed
+                ? `The robot still couldn't save ${unsavedCount} ${unsavedCount === 1 ? 'answer' : 'answers'}. Tap Finish again to leave without saving them.`
+                : "Some answers couldn't be saved yet. The robot will try again when you finish."}
             </p>
           )}
           {finishButton(score)}

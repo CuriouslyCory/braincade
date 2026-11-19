@@ -6,6 +6,7 @@ import {
 import { type LearnerProfile, learnerProfileSchema } from '@braincade/learning';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import * as SecureStore from 'expo-secure-store';
 import {
   createContext,
   type ReactNode,
@@ -58,7 +59,7 @@ export function HostProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    void readSettings(AsyncStorage).then(setSettings);
+    void readSettings(AsyncStorage, SecureStore).then(setSettings);
     void learner
       .getProfile()
       .then(setProfile)
@@ -114,7 +115,7 @@ export function HostProvider({ children }: { children: ReactNode }) {
         handwriting,
         reload,
         saveSettings: async (next) => {
-          await writeSettings(AsyncStorage, next);
+          await writeSettings(AsyncStorage, SecureStore, next);
           setSettings(next);
         },
         saveProfile: async (patch) => {

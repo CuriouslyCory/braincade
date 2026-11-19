@@ -3,10 +3,12 @@ import { useEffect, useState } from 'react';
 import { onPlatformChange, platform, platformReady } from '../host/platform';
 
 let settled: HostPlatform | undefined;
+// A probe superseded by a newer one (the code changed again) must not overwrite its result.
 const track = () => {
   settled = undefined;
-  void platformReady().then((p) => {
-    settled = p;
+  const probe = platformReady();
+  void probe.then((p) => {
+    if (probe === platformReady()) settled = p;
   });
 };
 track();
@@ -23,7 +25,10 @@ export function usePlatform(): { platform: HostPlatform; ready: boolean } {
   useEffect(() => {
     let active = true;
     const wait = () => {
-      void platformReady().then((p) => active && setCurrent(p));
+      const probe = platformReady();
+      void probe.then((p) => {
+        if (active && probe === platformReady()) setCurrent(p);
+      });
     };
     if (!current) wait();
     const off = onPlatformChange(() => {

@@ -390,6 +390,33 @@ describe('Robot Reader', () => {
     expect(t.attempts.map((a) => a.word)).toEqual(['necessary', 'knight']);
   });
 
+  it('says so when the last retry fails, and leaves on a second Finish', async () => {
+    const { t } = setup({ words: [PICKLE], read: readsInOrder(PICKLE.sentence ?? '') });
+    const record = vi.fn(async () => {
+      throw new Error('storage full');
+    });
+    t.ctx.progress.record = record;
+    await start();
+    snap();
+    await screen.findByTestId('robot-reading');
+    fireEvent.click(screen.getByRole('button', { name: 'See my score' }));
+    await screen.findByTestId('unsaved-progress');
+
+    // A double tap while saving sends the batch once.
+    const finish = screen.getByRole('button', { name: 'Finish' });
+    fireEvent.click(finish);
+    fireEvent.click(finish);
+    expect((await screen.findByText(/still couldn't save 1 answer/)).textContent).toContain(
+      'Tap Finish again',
+    );
+    expect(record).toHaveBeenCalledTimes(2);
+    expect(t.exited).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    await expect.poll(() => t.exited).toEqual({ score: 10 });
+    expect(record).toHaveBeenCalledTimes(2);
+  });
+
   it('mounts through the game definition and cleans up', async () => {
     const t = createTestContext({ words: [PICKLE] });
     const root = document.createElement('div');

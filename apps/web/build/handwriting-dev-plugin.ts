@@ -31,7 +31,11 @@ export function handwritingDevApi({
           .then(([{ handleHandwritingRequest }, request]) =>
             handleHandwritingRequest(request, { apiKey, accessCode }),
           )
-          .then((response) => sendResponse(res, response))
+          .then(async (response) => {
+            await sendResponse(res, response);
+            // An oversized upload stopped being buffered; discard whatever is still arriving.
+            if (!req.readableEnded) req.resume();
+          })
           .catch(next);
       });
     },
@@ -47,10 +51,11 @@ async function toRequest(req: IncomingMessage): Promise<Request> {
   const method = req.method ?? 'GET';
   let body: Buffer | undefined;
   if (method !== 'GET' && method !== 'HEAD') {
-    // Stop buffering just past the handler's limit; it then answers 413.
+    // Stop buffering just past the handler's limit; it then answers 413. Leaving the loop
+    // must not destroy the request, or the socket closes before that answer is sent.
     const chunks: Buffer[] = [];
     let size = 0;
-    for await (const chunk of req) {
+    for await (const chunk of req.iterator({ destroyOnReturn: false })) {
       chunks.push(chunk as Buffer);
       size += (chunk as Buffer).byteLength;
       if (size > DEV_BODY_LIMIT) break;
