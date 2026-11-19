@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 
 type HandlerModule = typeof import('../server/handwriting');
+/** MAX_BODY_BYTES in server/handwriting.ts (not imported, so the config never loads the SDK). */
+const DEV_BODY_LIMIT = 6 * 1024 * 1024;
 const handlerPath = fileURLToPath(new URL('../server/handwriting.ts', import.meta.url));
 
 /**
@@ -45,8 +47,14 @@ async function toRequest(req: IncomingMessage): Promise<Request> {
   const method = req.method ?? 'GET';
   let body: Buffer | undefined;
   if (method !== 'GET' && method !== 'HEAD') {
+    // Stop buffering just past the handler's limit; it then answers 413.
     const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(chunk as Buffer);
+    let size = 0;
+    for await (const chunk of req) {
+      chunks.push(chunk as Buffer);
+      size += (chunk as Buffer).byteLength;
+      if (size > DEV_BODY_LIMIT) break;
+    }
     body = Buffer.concat(chunks);
   }
   return new Request('http://localhost/api/handwriting', {

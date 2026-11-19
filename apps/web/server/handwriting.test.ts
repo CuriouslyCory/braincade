@@ -24,7 +24,9 @@ type ParseParams = Parameters<HandwritingModelClient['beta']['messages']['parse'
 function fakeClient(
   respond: () => Promise<{ stop_reason: string | null; parsed_output: unknown }>,
 ) {
-  const parse = vi.fn((_params: ParseParams) => respond());
+  const parse = vi.fn((_params: ParseParams, _options?: { signal?: AbortSignal | null }) =>
+    respond(),
+  );
   const client: HandwritingModelClient = { beta: { messages: { parse } } };
   return { client, parse };
 }
@@ -129,6 +131,28 @@ describe('handleHandwritingRequest', () => {
     const big = `data:image/jpeg;base64,${'A'.repeat(MAX_BODY_BYTES)}`;
     const response = await handleHandwritingRequest(post({ image: big }), { apiKey: 'sk-test' });
     expect(response.status).toBe(413);
+  });
+
+  it('stops reading a chunked body without Content-Length once it is too large', async () => {
+    let pulled = 0;
+    const chunk = new Uint8Array(1024 * 1024);
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled++;
+        controller.enqueue(chunk);
+      },
+    });
+    const request = new Request(ENDPOINT, { method: 'POST', body, duplex: 'half' } as RequestInit);
+    const response = await handleHandwritingRequest(request, { apiKey: 'sk-test' });
+    expect(response.status).toBe(413);
+    // An endless stream: the handler gave up just past the limit instead of buffering it all.
+    expect(pulled).toBeLessThan(MAX_BODY_BYTES / chunk.byteLength + 4);
+  });
+
+  it('bounds the whole model call, retries included, with an abort signal', async () => {
+    const { client, parse } = readsAs([]);
+    await handleHandwritingRequest(post({ image: IMAGE }), { apiKey: 'sk-test', client });
+    expect(parse.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('answers 503 when no key is configured', async () => {

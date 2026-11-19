@@ -16,6 +16,9 @@ const MODEL = 'claude-opus-5-5';
 /** A reading is at most 200 short words of JSON; this caps what one call can cost. */
 const MAX_TOKENS = 4096;
 
+/** The whole model call, retries and their waits included, inside the game's 45 s wait. */
+const MODEL_DEADLINE_MS = 40_000;
+
 /** Must match ACCESS_CODE_HEADER in packages/game-host/src/handwriting.ts. */
 export const ACCESS_CODE_HEADER = 'x-braincade-access-code';
 
@@ -46,6 +49,7 @@ export interface HandwritingModelClient {
     messages: {
       parse(
         params: Anthropic.Beta.Messages.MessageCreateParamsNonStreaming,
+        options?: Anthropic.RequestOptions,
       ): PromiseLike<{ stop_reason: string | null; parsed_output: unknown }>;
     };
   };
@@ -108,10 +112,8 @@ export async function handleHandwritingRequest(
 
   const declaredLength = Number(request.headers.get('content-length') ?? 0);
   if (declaredLength > MAX_BODY_BYTES) return json(413, { error: 'The photo is too large.' });
-  const raw = await request.text();
-  if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) {
-    return json(413, { error: 'The photo is too large.' });
-  }
+  const raw = await readBody(request, MAX_BODY_BYTES);
+  if (raw === null) return json(413, { error: 'The photo is too large.' });
 
   let body: unknown;
   try {
@@ -129,37 +131,41 @@ export async function handleHandwritingRequest(
   }
 
   if (!configured) return json(503, { error: 'The handwriting reader is not configured.' });
-  // Two 20 s tries fit inside the game's 45 s wait and the function's 60 s limit.
+  // Up to two 20 s tries, but never past MODEL_DEADLINE_MS overall (retry waits included):
+  // the game stops waiting at 45 s and the function is stopped at 60 s.
   const client =
     options.client ?? new Anthropic({ apiKey: options.apiKey, timeout: 20_000, maxRetries: 1 });
 
   try {
-    const response = await client.beta.messages.parse({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      // A quick transcription; low effort keeps it fast.
-      output_config: { effort: 'low', format: betaZodOutputFormat(readingSchema) },
-      // If a safety classifier declines the request, retry on the default fallback model.
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: image[1] as 'image/jpeg' | 'image/png' | 'image/webp',
-                data: image[2] as string,
+    const response = await client.beta.messages.parse(
+      {
+        model: MODEL,
+        max_tokens: MAX_TOKENS,
+        // A quick transcription; low effort keeps it fast.
+        output_config: { effort: 'low', format: betaZodOutputFormat(readingSchema) },
+        // If a safety classifier declines the request, retry on the default fallback model.
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+        system: SYSTEM_PROMPT,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: image[1] as 'image/jpeg' | 'image/png' | 'image/webp',
+                  data: image[2] as string,
+                },
               },
-            },
-            { type: 'text', text: 'Transcribe the handwriting in this photo.' },
-          ],
-        },
-      ],
-    });
+              { type: 'text', text: 'Transcribe the handwriting in this photo.' },
+            ],
+          },
+        ],
+      },
+      { signal: AbortSignal.timeout(MODEL_DEADLINE_MS) },
+    );
 
     if (response.stop_reason === 'refusal') {
       return json(502, { error: 'The handwriting reader declined to read this photo.' });
@@ -177,6 +183,34 @@ export async function handleHandwritingRequest(
       error: `The handwriting reader failed${status ? ` (HTTP ${status})` : ''}.`,
     });
   }
+}
+
+/**
+ * Read the body as text, giving up (null) as soon as it passes `limit` bytes, so a
+ * chunked upload without Content-Length is never buffered in full.
+ */
+async function readBody(request: Request, limit: number): Promise<string | null> {
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const body = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(body);
 }
 
 /** Trim a reading to the protocol's limits so the host's validation never rejects it. */

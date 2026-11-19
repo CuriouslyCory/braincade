@@ -42,11 +42,7 @@ export default defineGame({
       report('printed', 'yes');
     }
     if (ctx.has('speech')) {
-      // Exiting mid-utterance rejects the request; that's expected, not a page error.
-      void ctx.speech.speak('bridge check').then(
-        () => report('spoke', 'yes'),
-        () => {},
-      );
+      void ctx.speech.speak('bridge check').then(() => report('spoke', 'yes'));
     }
 
     report('checks', 'done');

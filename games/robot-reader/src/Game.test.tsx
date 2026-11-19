@@ -341,6 +341,55 @@ describe('Robot Reader', () => {
     expect(stop).toHaveBeenCalledTimes(2);
   });
 
+  it('does not start read-back speech while paused, and talks again after resume', async () => {
+    let finishRead!: (reading: string) => void;
+    const { t } = setup({
+      words: [PICKLE],
+      read: () =>
+        new Promise<string>((resolve) => {
+          finishRead = resolve;
+        }),
+    });
+    await start();
+    snap();
+    await screen.findByTestId('robot-thinking');
+    act(() => t.emit('pause'));
+    await act(async () => finishRead(PICKLE.sentence ?? ''));
+    expect(await screen.findByTestId('robot-reading')).toBeTruthy();
+    expect(t.spoken).toEqual([]);
+
+    act(() => t.emit('resume'));
+    fireEvent.click(screen.getByRole('button', { name: 'Hear the robot' }));
+    expect(t.spoken).toEqual([PICKLE.sentence]);
+  });
+
+  it('keeps an attempt the host could not save and sends it again before exit', async () => {
+    const { t } = setup({
+      words: [PICKLE, KNIGHT],
+      read: readsInOrder(PICKLE.sentence ?? '', KNIGHT.sentence ?? ''),
+    });
+    const record = t.ctx.progress.record;
+    t.ctx.progress.record = vi
+      .fn<typeof record>()
+      .mockRejectedValueOnce(new Error('storage full'))
+      .mockRejectedValueOnce(new Error('storage full'))
+      .mockImplementation(record);
+    await start();
+    snap();
+    await screen.findByTestId('robot-reading');
+    fireEvent.click(screen.getByRole('button', { name: 'Next sentence' }));
+    await screen.findByTestId('prompt-sentence');
+    snap();
+    await screen.findByTestId('robot-reading');
+    fireEvent.click(screen.getByRole('button', { name: 'See my score' }));
+    expect((await screen.findByTestId('unsaved-progress')).textContent).toContain('try again');
+    expect(t.attempts).toEqual([]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    await expect.poll(() => t.exited).toEqual({ score: 18 });
+    expect(t.attempts.map((a) => a.word)).toEqual(['necessary', 'knight']);
+  });
+
   it('mounts through the game definition and cleans up', async () => {
     const t = createTestContext({ words: [PICKLE] });
     const root = document.createElement('div');

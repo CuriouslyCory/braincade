@@ -1,7 +1,8 @@
 import type { CameraCapability } from '@braincade/game-host';
-import type { CapturedImage } from '@braincade/game-sdk';
+import { type CapturedImage, MAX_IMAGE_DATA_URL_LENGTH } from '@braincade/game-sdk';
 
-const JPEG_QUALITY = 0.85;
+/** Tried in order until the photo fits the protocol's size limit. */
+const JPEG_QUALITIES = [0.85, 0.7, 0.55, 0.4];
 
 /** An image ready to draw: a video frame or a decoded upload. */
 export interface Frame {
@@ -104,7 +105,26 @@ export function webCamera({
           shoot.hidden = true;
         };
         const onKey = (event: KeyboardEvent) => {
-          if (event.key === 'Escape') finish(null);
+          if (event.key === 'Escape') {
+            finish(null);
+            return;
+          }
+          // A modal dialog keeps Tab and Shift+Tab inside it, wrapping at both ends.
+          if (event.key !== 'Tab') return;
+          const focusable = [shoot, file, cancel].filter(
+            (el) => !el.hidden && !(el as HTMLButtonElement | HTMLInputElement).disabled,
+          );
+          const first = focusable[0];
+          const last = focusable.at(-1);
+          if (!first || !last) return;
+          const active = doc.activeElement;
+          if (event.shiftKey && (active === first || !sheet.contains(active))) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && (active === last || !sheet.contains(active))) {
+            event.preventDefault();
+            first.focus();
+          }
         };
         // Leaving the player (browser back) must not leave the sheet behind.
         const onLeave = () => finish(null);
@@ -125,14 +145,21 @@ export function webCamera({
             status.textContent = 'That photo did not work. Try again, or upload a photo.';
           }
         });
+        // Picking another photo while one is still decoding: only the latest counts.
+        let latestUpload = 0;
         file.addEventListener('change', () => {
           const picked = file.files?.[0];
           if (!picked) return;
+          const current = ++latestUpload;
           status.textContent = 'Loading the photo…';
           decode(picked)
-            .then((frame) => finish(encode(frame, maxSize)))
+            .then((frame) => {
+              if (current === latestUpload) finish(encode(frame, maxSize));
+            })
             .catch(() => {
-              status.textContent = 'That file could not be opened. Try another photo.';
+              if (current === latestUpload) {
+                status.textContent = 'That file could not be opened. Try another photo.';
+              }
             });
         });
 
@@ -190,13 +217,23 @@ function decodeFile(file: Blob): Promise<Frame> {
   });
 }
 
-function encodeJpeg(doc: Document, frame: Frame, maxSize: number): CapturedImage {
-  const { width, height } = fitWithin(frame.width, frame.height, maxSize);
-  const canvas = doc.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Canvas is not available');
-  context.drawImage(frame.source, 0, 0, width, height);
-  return { image: canvas.toDataURL('image/jpeg', JPEG_QUALITY), width, height };
+/**
+ * Scale and encode a frame as JPEG within the protocol's size limit: lower the
+ * quality, then halve the size, until it fits. Most photos fit on the first try.
+ */
+export function encodeJpeg(doc: Document, frame: Frame, maxSize: number): CapturedImage {
+  for (let size = maxSize; ; size = Math.floor(size / 2)) {
+    const { width, height } = fitWithin(frame.width, frame.height, size);
+    const canvas = doc.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas is not available');
+    context.drawImage(frame.source, 0, 0, width, height);
+    for (const quality of JPEG_QUALITIES) {
+      const image = canvas.toDataURL('image/jpeg', quality);
+      if (image.length <= MAX_IMAGE_DATA_URL_LENGTH) return { image, width, height };
+    }
+    if (size <= 160) throw new Error('The photo is too detailed to send');
+  }
 }

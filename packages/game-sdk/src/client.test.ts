@@ -1,7 +1,35 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createHostClient } from './client';
-import { CHANNEL, HostError, PROTOCOL_VERSION, type RequestMessage } from './protocol';
+import { createGameContext } from './context';
+import type { GameManifest } from './manifest';
+import {
+  CHANNEL,
+  HostError,
+  PROTOCOL_VERSION,
+  type RequestMessage,
+  type SessionInfo,
+} from './protocol';
 import { createMemoryTransportPair } from './transport';
+
+const SESSION: SessionInfo = {
+  sessionId: 's',
+  gameId: 'demo',
+  platform: 'web',
+  capabilities: ['speech'],
+  learner: { name: '', interests: [] },
+  locale: 'en-US',
+};
+const MANIFEST: GameManifest = {
+  id: 'demo',
+  title: 'Demo',
+  description: 'Demo',
+  icon: '🧪',
+  engine: 'dom',
+  skills: ['spelling'],
+  requires: [],
+  status: 'draft',
+  version: '1.0.0',
+};
 
 function fakeHost(respond: (req: RequestMessage) => object) {
   const [frameSide, hostSide] = createMemoryTransportPair();
@@ -91,19 +119,23 @@ describe('createHostClient', () => {
     expect(onPause).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects pending requests on dispose', async () => {
+  it('drops pending requests on dispose without settling them', async () => {
     const [frameSide] = createMemoryTransportPair();
-    const client = createHostClient(frameSide);
-    const pending = client.request('speech.stop', {});
+    const client = createHostClient(frameSide, { timeoutMs: 5 });
+    const settled = vi.fn();
+    client.request('speech.stop', {}).then(settled, settled);
     client.dispose();
-    await expect(pending).rejects.toMatchObject({ code: 'internal' });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(settled).not.toHaveBeenCalled();
   });
 
-  it('does not leave abandoned requests as unhandled rejections on dispose', async () => {
-    // Vitest fails the run on an unhandled rejection, so this test needs no assertion of its own.
+  it('never surfaces fire-and-forget context calls as unhandled rejections on dispose', async () => {
+    // Vitest fails the run on an unhandled rejection, so these calls are the assertion.
     const [frameSide] = createMemoryTransportPair();
     const client = createHostClient(frameSide);
-    void client.request('speech.speak', { text: 'hi' });
+    const ctx = createGameContext(client, SESSION, MANIFEST);
+    void ctx.speech.speak('hi');
+    void ctx.speech.speak('bye').then(() => {});
     client.dispose();
     await new Promise((r) => setTimeout(r, 10));
   });

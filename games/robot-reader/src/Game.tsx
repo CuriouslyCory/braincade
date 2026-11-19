@@ -1,4 +1,5 @@
 import {
+  type AttemptInput,
   type CapturedImage,
   type GameContext,
   type GameWord,
@@ -165,6 +166,10 @@ export function Game({ ctx }: { ctx: GameContext }) {
   const [busy, setBusy] = useState(false);
   const spoke = useRef(false);
   const alive = useRef(true);
+  const paused = useRef(false);
+  /** Attempts the host couldn't save yet; sent again with the next one, and before exit. */
+  const unsaved = useRef<AttemptInput[]>([]);
+  const [unsavedCount, setUnsavedCount] = useState(0);
 
   const canSpeak = ctx.has('speech');
   const current = sentences[index];
@@ -178,7 +183,8 @@ export function Game({ ctx }: { ctx: GameContext }) {
 
   const speak = useCallback(
     (text: string, rate = 0.9) => {
-      if (!canSpeak || !text.trim()) return;
+      // A reading that finishes while the app is in the background stays quiet.
+      if (!canSpeak || paused.current || !text.trim()) return;
       spoke.current = true;
       // Don't wait: the robot talks while the learner looks at the result.
       void ctx.speech.speak(text.slice(0, MAX_SPEECH), { rate }).catch(() => {});
@@ -200,10 +206,17 @@ export function Game({ ctx }: { ctx: GameContext }) {
         if (!alive.current) return;
         setPhase({ name: 'load-error', message: e instanceof Error ? e.message : String(e) });
       });
-    const offPause = ctx.on('pause', stopSpeech);
+    const offPause = ctx.on('pause', () => {
+      paused.current = true;
+      stopSpeech();
+    });
+    const offResume = ctx.on('resume', () => {
+      paused.current = false;
+    });
     return () => {
       alive.current = false;
       offPause();
+      offResume();
       stopSpeech();
     };
   }, [ctx, stopSpeech]);
@@ -263,12 +276,9 @@ export function Game({ ctx }: { ctx: GameContext }) {
     if (busy || !current || !result) return;
     setBusy(true);
     stopSpeech();
-    try {
-      const attempt = targetAttempt(current.word, sentence, result.comparison);
-      if (attempt) await ctx.progress.record(attempt);
-    } catch {
-      // Progress is best effort; never trap the learner on this screen.
-    }
+    const attempt = targetAttempt(current.word, sentence, result.comparison);
+    if (attempt) unsaved.current = [...unsaved.current, attempt];
+    await saveProgress();
     if (!alive.current) return;
     setBusy(false);
     if (isLast) setPhase({ name: 'done' });
@@ -278,16 +288,30 @@ export function Game({ ctx }: { ctx: GameContext }) {
     }
   }
 
+  /** Send any unsaved attempts. A failure never traps the learner; they're kept for a retry. */
+  async function saveProgress() {
+    const batch = unsaved.current;
+    if (batch.length === 0) return;
+    try {
+      await ctx.progress.record(batch);
+      unsaved.current = unsaved.current.slice(batch.length);
+    } catch {
+      // Kept in `unsaved`: tried again with the next sentence and before exit.
+    }
+    if (alive.current) setUnsavedCount(unsaved.current.length);
+  }
+
+  async function finish(finalScore?: number) {
+    await saveProgress();
+    await ctx.exit(finalScore === undefined ? {} : { score: finalScore });
+  }
+
   const finished = results.filter((r): r is SentenceResult => r !== undefined);
   const score = finished.reduce((sum, r) => sum + r.comparison.counts.correct, 0);
   const totalWords = finished.reduce((sum, r) => sum + r.comparison.counts.total, 0);
 
   const finishButton = (finalScore?: number) => (
-    <button
-      type="button"
-      className="btn btn-go"
-      onClick={() => void ctx.exit(finalScore === undefined ? {} : { score: finalScore })}
-    >
+    <button type="button" className="btn btn-go" onClick={() => void finish(finalScore)}>
       Finish
     </button>
   );
@@ -490,6 +514,11 @@ export function Game({ ctx }: { ctx: GameContext }) {
             You copied {finished.length} {finished.length === 1 ? 'sentence' : 'sentences'}. The
             robot read {score} of {totalWords} words correctly!
           </p>
+          {unsavedCount > 0 && (
+            <p className="notice" role="alert" data-testid="unsaved-progress">
+              Some answers couldn't be saved yet. The robot will try again when you finish.
+            </p>
+          )}
           {finishButton(score)}
         </section>
       )}

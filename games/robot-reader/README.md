@@ -8,9 +8,11 @@ out loud. Three sentences per session.
 - Sentences come from `ctx.words.next({ tags: ['silly-sentence'] })`, i.e.
   `packages/content/word-lists/grade-5-silly-sentences.json`. Each entry's `word` is the spelling
   target highlighted in the sentence.
-- One attempt is recorded per sentence, for the target word, when the learner moves on:
-  `correct` only if the robot read that word clearly and it was spelled right; `response` is what it
-  read there (the gibberish if unreadable, empty if missing). Retakes replace the earlier reading.
+- At most one attempt is recorded per sentence, for the target word, when the learner moves on, and
+  only if the robot could read that word: `correct` when it was spelled right, otherwise `response`
+  is the misspelling. An unreadable or missing target word records nothing (that's handwriting or
+  copying, not spelling), and gibberish is never saved. Retakes replace the earlier reading. If the
+  host can't save an attempt, the game keeps it and sends it again with the next one and on Finish.
 - Score = words read correctly across the session (latest photo per sentence).
 
 ## Code

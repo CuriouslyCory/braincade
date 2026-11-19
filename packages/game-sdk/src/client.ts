@@ -39,7 +39,6 @@ export function createHostClient(
       resolve: (value: unknown) => void;
       reject: (error: Error) => void;
       timer: ReturnType<typeof setTimeout> | undefined;
-      promise?: Promise<unknown>;
     }
   >();
   const listeners = new Map<HostEvent, Set<() => void>>();
@@ -64,7 +63,7 @@ export function createHostClient(
     request(method, params, options = {}) {
       const id = nextId++;
       const limit = options.timeoutMs === undefined ? timeoutMs : options.timeoutMs;
-      const promise = new Promise<MethodResults[typeof method]>((resolve, reject) => {
+      return new Promise((resolve, reject) => {
         const timer =
           limit === null
             ? undefined
@@ -82,9 +81,6 @@ export function createHostClient(
           params,
         });
       });
-      const entry = pending.get(id);
-      if (entry) entry.promise = promise;
-      return promise;
     },
     notify(name, data) {
       transport.send({ channel: CHANNEL, v: PROTOCOL_VERSION, type: 'notify', name, data });
@@ -97,13 +93,10 @@ export function createHostClient(
     },
     dispose() {
       stop();
-      for (const [, entry] of pending) {
-        clearTimeout(entry.timer);
-        // The game is being torn down, so a fire-and-forget call (`void ctx.speech.speak(...)`)
-        // must not surface as an unhandled rejection. Callers that await still see the error.
-        void entry.promise?.catch(() => {});
-        entry.reject(new HostError('internal', 'Client disposed'));
-      }
+      // The frame is being torn down after the game's cleanup ran, so drop pending requests
+      // without settling them: no game code should run past this point, and rejecting would
+      // turn every fire-and-forget call (`void ctx.speech.speak(...)`) into an unhandled rejection.
+      for (const [, entry] of pending) clearTimeout(entry.timer);
       pending.clear();
       listeners.clear();
     },
