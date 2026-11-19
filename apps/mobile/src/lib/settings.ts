@@ -57,12 +57,15 @@ export async function readSettings(
   // Codes saved by earlier builds lived in the plain settings JSON: move them to secure storage.
   if (typeof stored.readerCode === 'string') {
     const legacy = stored.readerCode;
-    try {
-      const server = serverFor(serverUrl);
-      if (legacy && server) await secrets.setItemAsync(READER_CODE_KEY, bind(server, legacy));
-      await store.setItem(KEY, JSON.stringify({ serverUrl }));
-    } catch {
-      // Try again next launch; meanwhile the code is still where it was.
+    const server = serverFor(serverUrl);
+    // Without a server to bind it to, leave the code where it is until there is one.
+    if (!legacy || server) {
+      try {
+        if (legacy && server) await secrets.setItemAsync(READER_CODE_KEY, bind(server, legacy));
+        await store.setItem(KEY, JSON.stringify({ serverUrl }));
+      } catch {
+        // Try again next launch; meanwhile the code is still where it was.
+      }
     }
     return { settings: { serverUrl, readerCode: legacy }, readerCodeUnreadable: false };
   }
@@ -125,7 +128,8 @@ export function settingsToSave(form: {
 }): { serverUrl: string; readerCode: string | undefined } {
   const serverUrl = form.serverUrl.trim();
   const code = form.readerCode.trim();
-  const typed = form.readerCode !== form.saved.readerCode;
+  // Compare trimmed: saved codes are stored trimmed, the field keeps what was typed.
+  const typed = code !== form.saved.readerCode.trim();
   if (serverUrl !== form.saved.serverUrl && !typed) return { serverUrl, readerCode: '' };
   if (form.readerCodeUnreadable && !code) return { serverUrl, readerCode: undefined };
   return { serverUrl, readerCode: code };

@@ -190,4 +190,26 @@ describe('settingsToSave', () => {
       }),
     ).toEqual({ serverUrl: 'https://a.example', readerCode: undefined });
   });
+
+  it('treats a saved code with surrounding spaces as untyped when the server changes', () => {
+    expect(
+      settingsToSave({ ...form, serverUrl: 'https://b.example', readerCode: '  code-a  ' }),
+    ).toEqual({ serverUrl: 'https://b.example', readerCode: '' });
+  });
+});
+
+describe('legacy migration without a server', () => {
+  it('keeps the plain code until there is a server to bind it to', async () => {
+    const store = createMemoryStore();
+    const secrets = memorySecrets();
+    store.data.set(SETTINGS_KEY, JSON.stringify({ serverUrl: '', readerCode: 'tacos' }));
+    const noServer: ServerFor = () => null;
+    expect((await readSettings(store, secrets, noServer)).settings.readerCode).toBe('tacos');
+    expect(store.data.get(SETTINGS_KEY)).toContain('tacos');
+    expect(secrets.data.size).toBe(0);
+
+    // Once a server resolves, it migrates as usual.
+    expect((await readSettings(store, secrets, serverFor)).settings.readerCode).toBe('tacos');
+    expect(store.data.get(SETTINGS_KEY)).not.toContain('tacos');
+  });
 });

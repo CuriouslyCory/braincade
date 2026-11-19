@@ -92,14 +92,16 @@ export function HostProvider({ children }: { children: ReactNode }) {
       return;
     }
     setCatalog({ status: 'loading' });
-    const service = createHandwritingService(baseUrl, {
-      fetch,
-      accessCode: settings.readerCode || undefined,
-    });
-    void service.available().then((ok) => {
-      if (ok && isCurrent()) setHandwriting(service);
-    });
     try {
+      // Inside the try: a malformed saved URL (e.g. a bad port) throws here, and must
+      // show as a catalog error rather than leaving the launcher loading forever.
+      const service = createHandwritingService(baseUrl, {
+        fetch,
+        accessCode: settings.readerCode || undefined,
+      });
+      void service.available().then((ok) => {
+        if (ok && isCurrent()) setHandwriting(service);
+      });
       const loaded = await loadCatalog({ baseUrl, fetchFn: fetch, cache: AsyncStorage });
       if (isCurrent()) setCatalog({ status: 'ready', ...loaded });
     } catch (error) {
