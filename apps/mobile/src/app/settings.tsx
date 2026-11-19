@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { settingsToSave } from '../lib/settings';
 import { useHost } from '../state';
 import { colors } from '../theme';
 
@@ -35,12 +36,14 @@ export default function SettingsScreen() {
           .filter(Boolean),
         showDrafts,
       });
-      const code = readerCode.trim();
-      await saveSettings({
-        serverUrl: serverUrl.trim(),
-        // A code that couldn't be read is kept unless a new one is typed.
-        readerCode: readerCodeUnreadable && !code ? undefined : code,
+      const next = settingsToSave({
+        saved: settings,
+        serverUrl,
+        readerCode,
+        readerCodeUnreadable,
       });
+      await saveSettings(next);
+      if (next.readerCode === '') setReaderCode('');
       setSaved(true);
     } catch (e) {
       setError(`Could not save: ${e instanceof Error ? e.message : String(e)}`);

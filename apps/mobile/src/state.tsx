@@ -18,8 +18,8 @@ import {
   useState,
 } from 'react';
 import { loadCatalog } from './lib/catalog';
-import { resolveBaseUrl } from './lib/config';
-import { readSettings, type Settings, writeSettings } from './lib/settings';
+import { originOf, resolveBaseUrl } from './lib/config';
+import { readSettings, type ServerFor, type Settings, writeSettings } from './lib/settings';
 import { learner } from './native-platform';
 
 type CatalogState =
@@ -42,6 +42,20 @@ interface HostState {
   saveProfile(patch: Partial<LearnerProfile>): Promise<void>;
 }
 
+/** Where the app loads games from for a saved server URL. */
+const baseUrlFor = (serverUrl: string) =>
+  resolveBaseUrl({
+    override: serverUrl,
+    envUrl: process.env.EXPO_PUBLIC_BRAINCADE_URL,
+    devHostUri: __DEV__ ? Constants.expoConfig?.hostUri : null,
+  });
+
+/** The reader code is bound to the origin of the server actually in use. */
+const serverFor: ServerFor = (serverUrl) => {
+  const base = baseUrlFor(serverUrl);
+  return base ? originOf(base) : null;
+};
+
 const HostContext = createContext<HostState | null>(null);
 
 export function HostProvider({ children }: { children: ReactNode }) {
@@ -51,19 +65,10 @@ export function HostProvider({ children }: { children: ReactNode }) {
   const [handwriting, setHandwriting] = useState<HandwritingCapability | null>(null);
   const [readerCodeUnreadable, setReaderCodeUnreadable] = useState(false);
 
-  const baseUrl = useMemo(
-    () =>
-      settings &&
-      resolveBaseUrl({
-        override: settings.serverUrl,
-        envUrl: process.env.EXPO_PUBLIC_BRAINCADE_URL,
-        devHostUri: __DEV__ ? Constants.expoConfig?.hostUri : null,
-      }),
-    [settings],
-  );
+  const baseUrl = useMemo(() => settings && baseUrlFor(settings.serverUrl), [settings]);
 
   useEffect(() => {
-    void readSettings(AsyncStorage, SecureStore).then((loaded) => {
+    void readSettings(AsyncStorage, SecureStore, serverFor).then((loaded) => {
       setSettings(loaded.settings);
       setReaderCodeUnreadable(loaded.readerCodeUnreadable);
     });
@@ -123,7 +128,7 @@ export function HostProvider({ children }: { children: ReactNode }) {
         readerCodeUnreadable,
         reload,
         saveSettings: async (next) => {
-          await writeSettings(AsyncStorage, SecureStore, next);
+          await writeSettings(AsyncStorage, SecureStore, next, serverFor);
           setSettings({
             serverUrl: next.serverUrl,
             readerCode: next.readerCode ?? settings.readerCode,

@@ -4,7 +4,9 @@ import { z } from 'zod';
 const KEY = 'braincade:mobile-settings';
 /**
  * Kept out of the settings JSON: it authorizes paid handwriting reads on the server.
- * Stored with the server URL it was entered for, so it is only ever sent to that server.
+ * Stored with the origin of the server it was entered for (the server the app actually
+ * talks to, which may come from the build or the dev machine when the URL field is
+ * empty), so it is only ever sent to that server.
  */
 const READER_CODE_KEY = 'braincade.reader-access-code';
 
@@ -17,7 +19,10 @@ export const settingsSchema = z.object({
 
 export type Settings = z.infer<typeof settingsSchema>;
 
-const boundCodeSchema = z.object({ serverUrl: z.string(), code: z.string() });
+const boundCodeSchema = z.object({ server: z.string(), code: z.string() });
+
+/** The origin the app would talk to for a saved `serverUrl` (null: no server). */
+export type ServerFor = (serverUrl: string) => string | null;
 
 /** Encrypted storage for secrets (expo-secure-store in the app). */
 export interface SecretStore {
@@ -36,6 +41,7 @@ export interface LoadedSettings {
 export async function readSettings(
   store: KeyValueStore,
   secrets: SecretStore,
+  serverFor: ServerFor,
 ): Promise<LoadedSettings> {
   let stored: Record<string, unknown> = {};
   try {
@@ -52,7 +58,8 @@ export async function readSettings(
   if (typeof stored.readerCode === 'string') {
     const legacy = stored.readerCode;
     try {
-      if (legacy) await secrets.setItemAsync(READER_CODE_KEY, bind(serverUrl, legacy));
+      const server = serverFor(serverUrl);
+      if (legacy && server) await secrets.setItemAsync(READER_CODE_KEY, bind(server, legacy));
       await store.setItem(KEY, JSON.stringify({ serverUrl }));
     } catch {
       // Try again next launch; meanwhile the code is still where it was.
@@ -67,7 +74,7 @@ export async function readSettings(
     return { settings: { serverUrl, readerCode: '' }, readerCodeUnreadable: true };
   }
   return {
-    settings: { serverUrl, readerCode: boundCode(secret, serverUrl) },
+    settings: { serverUrl, readerCode: boundCode(secret, serverFor(serverUrl)) },
     readerCodeUnreadable: false,
   };
 }
@@ -81,24 +88,45 @@ export async function writeSettings(
   store: KeyValueStore,
   secrets: SecretStore,
   settings: { serverUrl: string; readerCode?: string | undefined },
+  serverFor: ServerFor,
 ): Promise<void> {
   const { serverUrl, readerCode } = settings;
-  if (readerCode) await secrets.setItemAsync(READER_CODE_KEY, bind(serverUrl, readerCode));
-  else if (readerCode === '') await secrets.deleteItemAsync(READER_CODE_KEY);
+  const server = serverFor(serverUrl);
+  if (readerCode && server) await secrets.setItemAsync(READER_CODE_KEY, bind(server, readerCode));
+  else if (readerCode !== undefined) await secrets.deleteItemAsync(READER_CODE_KEY);
   await store.setItem(KEY, JSON.stringify({ serverUrl }));
 }
 
-function bind(serverUrl: string, code: string): string {
-  return JSON.stringify({ serverUrl, code });
+function bind(server: string, code: string): string {
+  return JSON.stringify({ server, code });
 }
 
-/** The stored code, if it was saved for this server URL. */
-function boundCode(secret: string | null, serverUrl: string): string {
-  if (!secret) return '';
+/** The stored code, if it was saved for this server. */
+function boundCode(secret: string | null, server: string | null): string {
+  if (!secret || !server) return '';
   try {
     const parsed = boundCodeSchema.safeParse(JSON.parse(secret));
-    return parsed.success && parsed.data.serverUrl === serverUrl ? parsed.data.code : '';
+    return parsed.success && parsed.data.server === server ? parsed.data.code : '';
   } catch {
     return '';
   }
+}
+
+/**
+ * What the settings form should save. A saved code belongs to its server, so changing
+ * the server clears it unless a code is typed; a code that couldn't be read is kept
+ * (`undefined`) unless a new one is typed.
+ */
+export function settingsToSave(form: {
+  saved: Settings;
+  serverUrl: string;
+  readerCode: string;
+  readerCodeUnreadable: boolean;
+}): { serverUrl: string; readerCode: string | undefined } {
+  const serverUrl = form.serverUrl.trim();
+  const code = form.readerCode.trim();
+  const typed = form.readerCode !== form.saved.readerCode;
+  if (serverUrl !== form.saved.serverUrl && !typed) return { serverUrl, readerCode: '' };
+  if (form.readerCodeUnreadable && !code) return { serverUrl, readerCode: undefined };
+  return { serverUrl, readerCode: code };
 }
