@@ -78,7 +78,8 @@ describe('webCamera', () => {
 
     const input = sheet()?.querySelector<HTMLInputElement>('input[type="file"]');
     expect(input?.accept).toBe('image/*');
-    expect(input?.getAttribute('capture')).toBe('environment');
+    // Without `capture`, phones let the learner pick the camera or an existing photo.
+    expect(input?.hasAttribute('capture')).toBe(false);
     const file = new File(['x'], 'page.jpg', { type: 'image/jpeg' });
     Object.defineProperty(input, 'files', { value: [file] });
     input?.dispatchEvent(new Event('change'));

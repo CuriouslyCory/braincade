@@ -101,8 +101,9 @@ export async function handleHandwritingRequest(
   }
 
   if (!configured) return json(503, { error: 'The handwriting reader is not configured.' });
+  // Two 20 s tries fit inside the game's 45 s wait and the function's 60 s limit.
   const client =
-    options.client ?? new Anthropic({ apiKey: options.apiKey, timeout: 40_000, maxRetries: 1 });
+    options.client ?? new Anthropic({ apiKey: options.apiKey, timeout: 20_000, maxRetries: 1 });
 
   try {
     const response = await client.beta.messages.parse({

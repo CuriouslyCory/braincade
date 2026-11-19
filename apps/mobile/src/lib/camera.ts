@@ -1,4 +1,5 @@
 import type { CameraCapability } from '@braincade/game-host';
+import { HostError } from '@braincade/game-sdk';
 
 export type CameraFacing = 'environment' | 'user';
 
@@ -25,7 +26,9 @@ export const CAMERA_PERMISSION_DENIED =
 export function createCameraCapability(driver: CameraDriver): CameraCapability {
   return {
     async capture({ facing, maxSize }) {
-      if (!(await driver.requestPermission())) throw new Error(CAMERA_PERMISSION_DENIED);
+      if (!(await driver.requestPermission())) {
+        throw new HostError('permission-denied', CAMERA_PERMISSION_DENIED);
+      }
       const uri = await driver.takePhoto(facing);
       if (uri === null) return null;
       const { base64, width, height } = await driver.encodeJpeg(uri, maxSize);

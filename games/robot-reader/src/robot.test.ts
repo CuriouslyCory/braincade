@@ -76,7 +76,7 @@ describe('verdict', () => {
 describe('targetAttempt', () => {
   const attemptFor = (reading: ReadWord[]) => {
     const comparison = compareWords(SENTENCE, reading);
-    return targetAttempt('necessary', SENTENCE, comparison, buildReadBack(reading, 0));
+    return targetAttempt('necessary', SENTENCE, comparison);
   };
 
   it('is correct when the target word is read and spelled right', () => {
@@ -95,30 +95,19 @@ describe('targetAttempt', () => {
     });
   });
 
-  it('records the gibberish for an unreadable target word', () => {
-    const reading = [...legible('Is it'), blur('nec'), ...legible('for a pickle')];
-    const attempt = attemptFor(reading);
-    expect(attempt.correct).toBe(false);
-    expect(attempt.response).toBe(buildReadBack(reading, 0)[2]?.text);
+  it('records nothing when the target word is unreadable', () => {
+    expect(attemptFor([...legible('Is it'), blur('nec'), ...legible('for a pickle')])).toBeNull();
   });
 
-  it('records an empty response when the word is missing', () => {
-    expect(attemptFor(legible('Is it for a pickle to wear a tuxedo?'))).toMatchObject({
-      correct: false,
-      response: '',
-    });
-    expect(attemptFor([])).toMatchObject({ correct: false, response: '' });
+  it('records nothing when the target word is missing or the photo is blank', () => {
+    expect(attemptFor(legible('Is it for a pickle to wear a tuxedo?'))).toBeNull();
+    expect(attemptFor([])).toBeNull();
   });
 
   it('finds a capitalized target at the start of the sentence', () => {
     const sentence = 'Tomorrow my socks will run for class president.';
     const reading = legible('tomorow my socks will run for class president.');
-    const attempt = targetAttempt(
-      'tomorrow',
-      sentence,
-      compareWords(sentence, reading),
-      buildReadBack(reading, 0),
-    );
+    const attempt = targetAttempt('tomorrow', sentence, compareWords(sentence, reading));
     expect(attempt).toMatchObject({ correct: false, response: 'tomorow' });
   });
 
@@ -126,12 +115,7 @@ describe('targetAttempt', () => {
     const long = 'n'.repeat(60);
     const sentence = 'necessary';
     const reading = legible(`${long}${long}${long}`);
-    const attempt = targetAttempt(
-      'necessary',
-      sentence,
-      compareWords(sentence, reading),
-      buildReadBack(reading, 0),
-    );
-    expect(attempt.response?.length).toBeLessThanOrEqual(120);
+    const attempt = targetAttempt('necessary', sentence, compareWords(sentence, reading));
+    expect(attempt?.response?.length).toBeLessThanOrEqual(120);
   });
 });

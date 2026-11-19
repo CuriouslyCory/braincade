@@ -289,8 +289,9 @@ week's missed words.
   branch per preview deployment. The same backend would let the grown-ups page edit word lists
   instead of editing JSON in the repo.
 - **The handwriting endpoint is public.** Anyone who finds `/api/handwriting` can spend the API key's
-  budget; only the request size (6 MB) limits each call. Add auth or rate limiting (and a spend limit
-  on the key) before sharing the deployment widely.
+  budget; only the request size (Vercel caps function bodies at 4.5 MB) limits each call. Before
+  sharing the deployment widely, set a spend limit on the key and add a Vercel Firewall rate-limit
+  rule for `/api/handwriting` (or real auth once the sync backend exists).
 - **Offline games on mobile:** ship a copy of the web build inside the app, and fall back to it when
   the server can't be reached.
 - **Per-game difficulty settings** on the grown-ups page, passed to games in the session.

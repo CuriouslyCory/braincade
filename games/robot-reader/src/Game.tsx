@@ -52,6 +52,8 @@ function cameraErrorMessage(error: unknown): string {
   if (error instanceof HostError && error.code === 'unsupported') {
     return "This device doesn't have a camera the robot can use.";
   }
+  // The host explains how to turn the camera back on; retrying won't help until then.
+  if (error instanceof HostError && error.code === 'permission-denied') return error.message;
   return "The camera didn't open. Let's try that again!";
 }
 
@@ -262,9 +264,8 @@ export function Game({ ctx }: { ctx: GameContext }) {
     setBusy(true);
     stopSpeech();
     try {
-      await ctx.progress.record(
-        targetAttempt(current.word, sentence, result.comparison, result.readBack),
-      );
+      const attempt = targetAttempt(current.word, sentence, result.comparison);
+      if (attempt) await ctx.progress.record(attempt);
     } catch {
       // Progress is best effort; never trap the learner on this screen.
     }

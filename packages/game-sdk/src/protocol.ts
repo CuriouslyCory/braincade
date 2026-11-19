@@ -118,6 +118,8 @@ export const ERROR_CODES = [
   'bad-request',
   'unknown-method',
   'unsupported',
+  /** The learner or a grown-up turned off access (e.g. camera permission). */
+  'permission-denied',
   'not-found',
   'internal',
   'timeout',

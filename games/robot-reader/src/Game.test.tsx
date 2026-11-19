@@ -125,7 +125,7 @@ describe('Robot Reader', () => {
     expect(t.attempts).toEqual([
       { word: 'necessary', correct: true, mode: 'handwritten', response: 'necessary' },
       { word: 'knight', correct: false, mode: 'handwritten', response: 'nite' },
-      { word: 'weird', correct: false, mode: 'handwritten', response: madeUp },
+      // "weird" was unreadable: that says nothing about its spelling, so it isn't recorded.
     ]);
     expect(t.reads).toHaveLength(3);
     fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
@@ -165,6 +165,18 @@ describe('Robot Reader', () => {
     expect((await screen.findByRole('alert')).textContent).toContain("camera didn't open");
     snap();
     expect(await screen.findByTestId('robot-reading')).toBeTruthy();
+  });
+
+  it("shows the host's explanation when camera access is turned off", async () => {
+    const { t } = setup({ words: [PICKLE], read: readsInOrder(PICKLE.sentence ?? '') });
+    t.ctx.camera.capture = async () => {
+      throw new HostError('permission-denied', 'A grown-up can turn the camera on in Settings.');
+    };
+    await start();
+    snap();
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'A grown-up can turn the camera on in Settings.',
+    );
   });
 
   it('shows a reading error, then re-reads the same photo on Try again', async () => {
@@ -265,9 +277,8 @@ describe('Robot Reader', () => {
     expect(t.spoken.at(-1)).toBe(reading.textContent);
     fireEvent.click(screen.getByRole('button', { name: 'See my score' }));
     await screen.findByTestId('score-summary');
-    expect(t.attempts).toHaveLength(1);
-    expect(t.attempts[0]).toMatchObject({ word: 'necessary', correct: false });
-    expect(t.attempts[0]?.response).toMatch(/^[a-z]+$/i);
+    // An unreadable target word says nothing about its spelling, so nothing is recorded.
+    expect(t.attempts).toEqual([]);
   });
 
   it('handles a photo with no words', async () => {
@@ -277,9 +288,7 @@ describe('Robot Reader', () => {
     expect((await screen.findByTestId('verdict')).textContent).toContain("can't see any words");
     fireEvent.click(screen.getByRole('button', { name: 'See my score' }));
     await screen.findByTestId('score-summary');
-    expect(t.attempts).toEqual([
-      { word: 'necessary', correct: false, mode: 'handwritten', response: '' },
-    ]);
+    expect(t.attempts).toEqual([]);
   });
 
   it('skips words without a sentence and ignores other lists', async () => {

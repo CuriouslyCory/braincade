@@ -91,29 +91,23 @@ export function verdict(comparison: Comparison, readCount: number): Verdict {
 const MAX_RESPONSE = 120;
 
 /**
- * The attempt to record for a sentence's target word: correct only when the
- * word was read clearly and spelled right. `response` is what the robot saw in
- * that spot (gibberish if it couldn't read it, empty if the word was missing).
+ * The attempt to record for a sentence's target word, or `null` when the photo
+ * says nothing about its spelling. Mastery treats a miss as "practice this
+ * spelling again", so only a word the robot could read counts: spelled right
+ * (`correct`) or wrong (`response` is the misspelling). An unreadable or missing
+ * word is a handwriting or copying problem, and gibberish is never stored as an answer.
  */
 export function targetAttempt(
   word: string,
   sentence: string,
   comparison: Comparison,
-  readBack: readonly ReadBackWord[],
-): AttemptInput {
+): AttemptInput | null {
   const result = comparison.words[findWordIndex(sentenceWords(sentence), word)];
-  let response = '';
-  if (result?.readIndex !== undefined) {
-    const seen =
-      result.status === 'unreadable'
-        ? (readBack[result.readIndex]?.text ?? '')
-        : (result.read ?? '');
-    response = splitToken(seen)[1];
-  }
+  if (result?.status !== 'correct' && result?.status !== 'misspelled') return null;
   return {
     word,
-    correct: result?.status === 'correct',
+    correct: result.status === 'correct',
     mode: 'handwritten',
-    response: response.slice(0, MAX_RESPONSE),
+    response: splitToken(result.read ?? '')[1].slice(0, MAX_RESPONSE),
   };
 }

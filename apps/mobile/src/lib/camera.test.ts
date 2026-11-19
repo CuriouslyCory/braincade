@@ -48,7 +48,7 @@ describe('createCameraCapability', () => {
     const { driver, calls } = fakeDriver({ requestPermission: async () => false });
     await expect(
       createCameraCapability(driver).capture({ facing: 'environment', maxSize: 800 }),
-    ).rejects.toThrow(CAMERA_PERMISSION_DENIED);
+    ).rejects.toMatchObject({ code: 'permission-denied', message: CAMERA_PERMISSION_DENIED });
     expect(calls).toEqual([]);
   });
 });

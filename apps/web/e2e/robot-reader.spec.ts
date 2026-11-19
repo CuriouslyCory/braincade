@@ -30,12 +30,13 @@ test('a learner copies silly sentences and the robot reads them back', async ({ 
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
 
-  // The robot reads every word, except that it can't make out the second one.
+  // The robot reads every word except one that isn't the highlighted target word.
   let sentence = '';
+  let blurred = 0;
   const images = await mockHandwriting(page, () => ({
     words: sentence
       .split(/\s+/)
-      .map((text, i) => ({ text: i === 1 ? 'xq' : text, legible: i !== 1 })),
+      .map((text, i) => ({ text: i === blurred ? 'xq' : text, legible: i !== blurred })),
   }));
 
   await page.goto('/#/play/robot-reader');
@@ -46,7 +47,9 @@ test('a learner copies silly sentences and the robot reads them back', async ({ 
   for (let round = 1; round <= 3; round++) {
     await expect(game.getByTestId('sentence-progress')).toHaveText(`Sentence ${round} of 3`);
     sentence = (await game.getByTestId('prompt-sentence').textContent()) ?? '';
-    expect(sentence.split(/\s+/).length).toBeGreaterThan(3);
+    const target = await game.getByTestId('prompt-sentence').locator('mark').textContent();
+    blurred = sentence.split(/\s+/).findIndex((word) => !word.includes(target ?? ''));
+    expect(blurred).toBeGreaterThanOrEqual(0);
 
     await game.getByRole('button', { name: 'Snap my writing' }).click();
     // The host owns the camera: its sheet opens over the player, outside the game frame.
@@ -75,7 +78,8 @@ test('a learner copies silly sentences and the robot reads them back', async ({ 
 
   await page.goto('/#/grown-ups');
   await expect(page.locator('.sessions li').first()).toContainText('Robot Reader');
-  await expect(page.locator('.sessions li').first()).toContainText('/3 correct');
+  // Each target word was read and spelled right; the unreadable words aren't recorded.
+  await expect(page.locator('.sessions li').first()).toContainText('3/3 correct');
   expect(errors).toEqual([]);
 });
 

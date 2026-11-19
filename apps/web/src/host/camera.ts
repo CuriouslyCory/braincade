@@ -73,8 +73,8 @@ export function webCamera({
         const upload = element(doc, 'label', 'camera-upload');
         const file = element(doc, 'input', 'visually-hidden');
         file.type = 'file';
+        // No `capture` attribute: phones then offer the camera *or* the photo library.
         file.accept = 'image/*';
-        file.setAttribute('capture', facing);
         upload.append(file, 'Upload a photo');
         const cancel = element(doc, 'button', 'camera-cancel');
         cancel.type = 'button';

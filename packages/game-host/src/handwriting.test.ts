@@ -49,6 +49,23 @@ describe('createHandwritingService', () => {
     ).toBe(false);
   });
 
+  it('gives up on a status check that hangs', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetch = fakeFetch(
+        (_url, init) =>
+          new Promise<Response>((_resolve, reject) =>
+            init?.signal?.addEventListener('abort', () => reject(new Error('aborted'))),
+          ),
+      );
+      const available = createHandwritingService('https://b.example', { fetch }).available();
+      await vi.advanceTimersByTimeAsync(4000);
+      await expect(available).resolves.toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('posts the image and validates the reading', async () => {
     const reading = {
       words: [
