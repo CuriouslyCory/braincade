@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
@@ -12,6 +13,11 @@ const MAX_WORDS = 200;
 const MAX_WORD_LENGTH = 60;
 
 const MODEL = 'claude-opus-5-5';
+/** A reading is at most 200 short words of JSON; this caps what one call can cost. */
+const MAX_TOKENS = 4096;
+
+/** Must match ACCESS_CODE_HEADER in packages/game-host/src/handwriting.ts. */
+export const ACCESS_CODE_HEADER = 'x-braincade-access-code';
 
 const IMAGE_DATA_URL = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/;
 
@@ -48,8 +54,21 @@ export interface HandwritingModelClient {
 export interface HandwritingHandlerOptions {
   /** `ANTHROPIC_API_KEY`. Without it the reader reports itself unavailable. */
   apiKey?: string | undefined;
+  /**
+   * `BRAINCADE_ACCESS_CODE`. When set, callers must send it in the access-code header;
+   * the key is paid for, and the endpoint is otherwise open to anyone with the URL.
+   */
+  accessCode?: string | undefined;
+  /** Treat the reader as unconfigured unless `accessCode` is set (deployments). */
+  requireAccessCode?: boolean;
   /** Defaults to a real Anthropic client using `apiKey`. */
   client?: HandwritingModelClient;
+}
+
+/** Compare codes in constant time (hashing first makes the lengths equal). */
+function sameCode(given: string, expected: string): boolean {
+  const digest = (value: string) => createHash('sha256').update(value).digest();
+  return timingSafeEqual(digest(given), digest(expected));
 }
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
@@ -62,20 +81,29 @@ const json = (status: number, body: unknown, headers: Record<string, string> = {
  * The handwriting endpoint (`api/handwriting`), as a plain Request → Response
  * function so the Vercel Function, the Vite dev server, and tests share it.
  *
- * - `GET` → `{ available }`, true when an API key is configured.
+ * - `GET` → `{ available }`: true when an API key is configured and the caller
+ *   sent the right access code (if one is set).
  * - `POST { image: <data URL> }` → `{ words: [{ text, legible }] }`, read by Claude
- *   with the child's spelling kept as written.
+ *   with the child's spelling kept as written. 401 without the access code.
  */
 export async function handleHandwritingRequest(
   request: Request,
   options: HandwritingHandlerOptions,
 ): Promise<Response> {
-  const configured = Boolean(options.apiKey);
+  const configured =
+    Boolean(options.apiKey) && (Boolean(options.accessCode) || !options.requireAccessCode);
+  const authorized =
+    !options.accessCode ||
+    sameCode(request.headers.get(ACCESS_CODE_HEADER) ?? '', options.accessCode);
   if (request.method === 'GET') {
-    return json(200, { available: configured });
+    return json(200, { available: configured && authorized });
   }
   if (request.method !== 'POST') {
     return json(405, { error: 'Use GET or POST.' }, { allow: 'GET, POST' });
+  }
+  // Turn away callers without the code before reading what they sent.
+  if (!authorized) {
+    return json(401, { error: 'Enter the robot reader access code on the Grown-ups page.' });
   }
 
   const declaredLength = Number(request.headers.get('content-length') ?? 0);
@@ -108,7 +136,7 @@ export async function handleHandwritingRequest(
   try {
     const response = await client.beta.messages.parse({
       model: MODEL,
-      max_tokens: 16000,
+      max_tokens: MAX_TOKENS,
       // A quick transcription; low effort keeps it fast.
       output_config: { effort: 'low', format: betaZodOutputFormat(readingSchema) },
       // If a safety classifier declines the request, retry on the default fallback model.

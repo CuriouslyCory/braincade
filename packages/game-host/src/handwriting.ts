@@ -4,6 +4,8 @@ import type { HandwritingCapability } from './bridge';
 
 /** Path of the handwriting endpoint, relative to the Braincade server's base URL. */
 export const HANDWRITING_ENDPOINT = 'api/handwriting';
+/** Header carrying the household access code the server checks before using its paid API key. */
+export const ACCESS_CODE_HEADER = 'x-braincade-access-code';
 
 export interface HandwritingService extends HandwritingCapability {
   /** Whether the server has a reader configured. Never throws; false when offline. */
@@ -30,15 +32,23 @@ const errorSchema = z.object({ error: z.string() });
  */
 export function createHandwritingService(
   baseUrl: string,
-  { fetch: fetchImpl = globalThis.fetch }: { fetch?: typeof fetch } = {},
+  {
+    fetch: fetchImpl = globalThis.fetch,
+    accessCode,
+  }: {
+    fetch?: typeof fetch;
+    /** The code a grown-up entered on this device; the server reports "unavailable" without it. */
+    accessCode?: string | undefined;
+  } = {},
 ): HandwritingService {
   const url = new URL(HANDWRITING_ENDPOINT, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`).href;
+  const auth: Record<string, string> = accessCode ? { [ACCESS_CODE_HEADER]: accessCode } : {};
 
   return {
     async available() {
       try {
         const response = await fetchImpl(url, {
-          headers: { accept: 'application/json' },
+          headers: { accept: 'application/json', ...auth },
           signal: timeoutSignal(STATUS_TIMEOUT_MS),
         });
         if (!response.ok) return false;
@@ -53,7 +63,7 @@ export function createHandwritingService(
       try {
         response = await fetchImpl(url, {
           method: 'POST',
-          headers: { 'content-type': 'application/json', accept: 'application/json' },
+          headers: { 'content-type': 'application/json', accept: 'application/json', ...auth },
           body: JSON.stringify({ image }),
           // The game stops waiting at this point, so don't leave a paid read running behind it.
           signal: timeoutSignal(HANDWRITING_TIMEOUT_MS),
@@ -71,9 +81,11 @@ export function createHandwritingService(
         throw new HostError(
           response.status === 503
             ? 'unsupported'
-            : response.status === 400
-              ? 'bad-request'
-              : 'internal',
+            : response.status === 401
+              ? 'permission-denied'
+              : response.status === 400
+                ? 'bad-request'
+                : 'internal',
           `Handwriting reader failed: ${message}`,
         );
       }

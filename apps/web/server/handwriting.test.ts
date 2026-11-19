@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  ACCESS_CODE_HEADER,
   clampReading,
   type HandwritingModelClient,
   handleHandwritingRequest,
@@ -39,6 +40,39 @@ describe('handleHandwritingRequest', () => {
 
     const off = await handleHandwritingRequest(new Request(ENDPOINT), {});
     expect(await off.json()).toEqual({ available: false });
+  });
+
+  it('requires the access code when one is set', async () => {
+    const { client, parse } = readsAs([{ text: 'Teh', legible: true }]);
+    const options = { apiKey: 'sk-test', accessCode: 'tacos', client };
+    const get = (code?: string) =>
+      handleHandwritingRequest(
+        new Request(ENDPOINT, code ? { headers: { [ACCESS_CODE_HEADER]: code } } : {}),
+        options,
+      ).then((r) => r.json());
+    expect(await get()).toEqual({ available: false });
+    expect(await get('nachos')).toEqual({ available: false });
+    expect(await get('tacos')).toEqual({ available: true });
+
+    const denied = await handleHandwritingRequest(post({ image: IMAGE }), options);
+    expect(denied.status).toBe(401);
+    expect(parse).not.toHaveBeenCalled();
+
+    const allowed = await handleHandwritingRequest(
+      post({ image: IMAGE }, { headers: { [ACCESS_CODE_HEADER]: 'tacos' } }),
+      options,
+    );
+    expect(allowed.status).toBe(200);
+  });
+
+  it('stays off on deployments until an access code is configured', async () => {
+    const { client, parse } = readsAs([]);
+    const options = { apiKey: 'sk-test', requireAccessCode: true, client };
+    expect(await (await handleHandwritingRequest(new Request(ENDPOINT), options)).json()).toEqual({
+      available: false,
+    });
+    expect((await handleHandwritingRequest(post({ image: IMAGE }), options)).status).toBe(503);
+    expect(parse).not.toHaveBeenCalled();
   });
 
   it('POST reads the photo with Claude, keeping the spelling', async () => {

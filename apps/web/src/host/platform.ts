@@ -22,13 +22,54 @@ export function createWebPlatform(): HostPlatform {
 /** The platform before the handwriting probe settles: everything except `handwriting`. */
 export const platform = createWebPlatform();
 
-const handwriting = createHandwritingService(new URL('.', document.baseURI).href);
+const READER_CODE_KEY = 'braincade:reader-access-code';
+
+/** The robot reader access code a grown-up entered on this device ('' if none). */
+export function readerAccessCode(): string {
+  try {
+    return window.localStorage.getItem(READER_CODE_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
 
 /**
- * The full platform. The handwriting reader lives on this site's server
- * (`api/handwriting`) and only exists when the deploy has an API key, so ask
- * once at startup. Never rejects: offline or no server means no handwriting.
+ * The handwriting reader lives on this site's server (`api/handwriting`) and only
+ * exists when the deploy has an API key and this device has its access code, so
+ * ask the server. Never rejects: offline or no server means no handwriting.
  */
-export const platformReady: Promise<HostPlatform> = handwriting
-  .available()
-  .then((available) => (available ? { ...platform, handwriting } : platform));
+function probe(): Promise<HostPlatform> {
+  const handwriting = createHandwritingService(new URL('.', document.baseURI).href, {
+    accessCode: readerAccessCode() || undefined,
+  });
+  return handwriting
+    .available()
+    .then((available) => (available ? { ...platform, handwriting } : platform));
+}
+
+let ready = probe();
+const listeners = new Set<() => void>();
+
+/** The full platform, once the startup probe settles. */
+export function platformReady(): Promise<HostPlatform> {
+  return ready;
+}
+
+/** Called when the platform is probed again (see setReaderAccessCode). */
+export function onPlatformChange(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** Save (or clear) this device's access code and ask the server again. */
+export function setReaderAccessCode(code: string): Promise<HostPlatform> {
+  try {
+    if (code) window.localStorage.setItem(READER_CODE_KEY, code);
+    else window.localStorage.removeItem(READER_CODE_KEY);
+  } catch {
+    // Storage blocked: the probe below still runs with the old code.
+  }
+  ready = probe();
+  for (const listener of listeners) listener();
+  return ready;
+}

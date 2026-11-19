@@ -66,6 +66,25 @@ describe('createHandwritingService', () => {
     }
   });
 
+  it('sends the access code with both requests when one is set', async () => {
+    const fetch = fakeFetch(() => json({ available: true }));
+    const service = createHandwritingService('https://b.example', { fetch, accessCode: 'tacos' });
+    await service.available();
+    await service.read(IMAGE).catch(() => {});
+    for (const [, init] of fetch.mock.calls) {
+      expect(new Headers((init as RequestInit).headers).get('x-braincade-access-code')).toBe(
+        'tacos',
+      );
+    }
+    const open = fakeFetch(() => json({ available: true }));
+    await createHandwritingService('https://b.example', { fetch: open }).available();
+    expect(
+      new Headers((open.mock.calls[0]?.[1] as RequestInit | undefined)?.headers).has(
+        'x-braincade-access-code',
+      ),
+    ).toBe(false);
+  });
+
   it('posts the image and validates the reading', async () => {
     const reading = {
       words: [
@@ -89,6 +108,9 @@ describe('createHandwritingService', () => {
     await expect(read(json({ error: 'not configured' }, 503))).rejects.toMatchObject({
       code: 'unsupported',
       message: expect.stringContaining('not configured'),
+    });
+    await expect(read(json({ error: 'wrong code' }, 401))).rejects.toMatchObject({
+      code: 'permission-denied',
     });
     await expect(read(json({ error: 'bad image' }, 400))).rejects.toMatchObject({
       code: 'bad-request',

@@ -4,8 +4,10 @@ import { useHost } from '../state';
 import { colors } from '../theme';
 
 export default function SettingsScreen() {
-  const { settings, profile, baseUrl, catalog, saveSettings, saveProfile, reload } = useHost();
+  const { settings, profile, baseUrl, catalog, handwriting, saveSettings, saveProfile, reload } =
+    useHost();
   const [serverUrl, setServerUrl] = useState(settings.serverUrl);
+  const [readerCode, setReaderCode] = useState(settings.readerCode);
   const [name, setName] = useState(profile.name);
   const [interests, setInterests] = useState(profile.interests.join(', '));
   const [showDrafts, setShowDrafts] = useState(profile.showDrafts);
@@ -24,7 +26,7 @@ export default function SettingsScreen() {
           .filter(Boolean),
         showDrafts,
       });
-      await saveSettings({ serverUrl: serverUrl.trim() });
+      await saveSettings({ serverUrl: serverUrl.trim(), readerCode: readerCode.trim() });
       setSaved(true);
     } catch (e) {
       setError(`Could not save: ${e instanceof Error ? e.message : String(e)}`);
@@ -62,6 +64,19 @@ export default function SettingsScreen() {
           : catalog.status === 'error'
             ? catalog.message
             : 'Loading…'}
+      </Text>
+
+      <Field
+        label="Robot reader access code"
+        value={readerCode}
+        onChangeText={setReaderCode}
+        secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      <Text style={styles.muted}>
+        Robot reader:{' '}
+        {handwriting ? 'on' : 'off (needs the access code from whoever runs the server)'}
       </Text>
 
       <View style={styles.row}>

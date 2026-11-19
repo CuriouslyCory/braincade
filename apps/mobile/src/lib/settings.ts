@@ -6,6 +6,8 @@ const KEY = 'braincade:mobile-settings';
 export const settingsSchema = z.object({
   /** Overrides EXPO_PUBLIC_BRAINCADE_URL, e.g. a LAN dev server. */
   serverUrl: z.string().default(''),
+  /** The server's BRAINCADE_ACCESS_CODE, which turns on its handwriting reader for this device. */
+  readerCode: z.string().default(''),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;

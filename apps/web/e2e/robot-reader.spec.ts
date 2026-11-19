@@ -105,3 +105,26 @@ test('the game needs the handwriting reader, which the static build does not hav
     'Needs handwriting',
   );
 });
+
+test('a grown-up enters the access code to turn the robot reader on', async ({ page }) => {
+  // The server only reports the reader available to callers that send the code.
+  await page.route('**/api/handwriting', (route) =>
+    route.fulfill({
+      json: {
+        available: route.request().headers()['x-braincade-access-code'] === 'tacos',
+      },
+    }),
+  );
+  await page.goto('/#/grown-ups');
+  const status = page.getByTestId('reader-status');
+  await expect(status).toContainText('Off');
+  await page.getByLabel(/Access code/).fill('tacos');
+  await page.getByRole('button', { name: 'Update code' }).click();
+  await expect(status).toContainText('On');
+
+  // Remembered on this device: the game can be played after a reload.
+  await page.reload();
+  await expect(status).toContainText('On');
+  await page.goto('/#/play/robot-reader');
+  await expect(page.locator('.player')).toHaveAttribute('data-state', 'running');
+});

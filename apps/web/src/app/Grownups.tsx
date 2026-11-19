@@ -8,8 +8,9 @@ import {
   wordStatus,
 } from '@braincade/learning';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import { platform } from '../host/platform';
+import { platform, readerAccessCode, setReaderAccessCode } from '../host/platform';
 import { useProfile } from './use-learner';
+import { usePlatform } from './use-platform';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -106,6 +107,8 @@ export function Grownups() {
         )}
       </form>
 
+      <ReaderSettings />
+
       <div className="card">
         <h2>Words</h2>
         <p data-testid="mastery-summary">
@@ -163,5 +166,46 @@ export function Grownups() {
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * The handwriting reader uses a paid API key, so the server only reads photos for
+ * devices that know the household access code (BRAINCADE_ACCESS_CODE).
+ */
+function ReaderSettings() {
+  const { platform: current, ready } = usePlatform();
+  const [code, setCode] = useState(readerAccessCode);
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void setReaderAccessCode(code.trim());
+  }
+
+  const status = !ready
+    ? 'Checking…'
+    : current.handwriting
+      ? 'On: handwriting games can read photos on this device.'
+      : 'Off: enter the access code, or ask whoever runs this site to turn the reader on.';
+
+  return (
+    <form className="card" onSubmit={onSubmit}>
+      <h2>Robot reader</h2>
+      <label>
+        Access code{' '}
+        <span className="hint">(lets handwriting games read photos on this device)</span>
+        <input
+          name="readerCode"
+          type="password"
+          autoComplete="off"
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+        />
+      </label>
+      <button type="submit">Update code</button>
+      <p className="hint" data-testid="reader-status" role="status">
+        {status}
+      </p>
+    </form>
   );
 }

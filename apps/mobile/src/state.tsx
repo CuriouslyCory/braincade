@@ -79,7 +79,10 @@ export function HostProvider({ children }: { children: ReactNode }) {
       return;
     }
     setCatalog({ status: 'loading' });
-    const service = createHandwritingService(baseUrl, { fetch });
+    const service = createHandwritingService(baseUrl, {
+      fetch,
+      accessCode: settings.readerCode || undefined,
+    });
     void service.available().then((ok) => {
       if (ok && isCurrent()) setHandwriting(service);
     });

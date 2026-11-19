@@ -28,7 +28,8 @@ The phone and the computer need to be on the same Wi-Fi network. In development 
 games from the web dev server on the computer running Metro, so run `pnpm dev` too.
 
 Games that read handwriting need an Anthropic API key. Copy `apps/web/.env.example` to
-`apps/web/.env.local` and set `ANTHROPIC_API_KEY`; `pnpm dev` serves `/api/handwriting` with it.
+`apps/web/.env.local` and set `ANTHROPIC_API_KEY`; `pnpm dev` serves `/api/handwriting` with it
+(`BRAINCADE_ACCESS_CODE` is optional locally and required on Vercel).
 Without a key those games show as unavailable and everything else works.
 
 | Command                     | What it does                                                             |
@@ -257,10 +258,13 @@ week's missed words.
 - The output is static: `index.html` (launcher), `play.html` (game frame), `catalog.json`, and
   hashed assets. Hash routing means no rewrites are needed. The one exception is the Vercel Function
   `api/handwriting.ts`, the handwriting reader.
-- **Handwriting reader:** set `ANTHROPIC_API_KEY` in the project's Environment Variables (for
-  Production, and Preview if drafts should read handwriting too). Without it, `GET /api/handwriting`
-  answers `{ "available": false }` and games that need `handwriting` show as unavailable. Photos of
-  the learner's writing go to the Anthropic API to be read and are not stored by Braincade.
+- **Handwriting reader:** set `ANTHROPIC_API_KEY` and `BRAINCADE_ACCESS_CODE` (a household
+  passphrase) in the project's Environment Variables (for Production, and Preview if drafts should
+  read handwriting too). Then enter the access code once per device: web Grown-ups → Robot reader,
+  or the mobile app's Grown-ups screen. The function stays off until both variables are set, and
+  only reads photos for callers that send the code, so a stranger who finds the URL can't spend
+  the key. Without them, games that need `handwriting` show as unavailable. Photos of the
+  learner's writing go to the Anthropic API to be read and are not stored by Braincade.
 - `catalog.json` and the HTML pages are served with `must-revalidate`, so a deploy shows up on the
   next app launch, and the hashed assets are cached immutably.
 - **Preview deployments** are how drafts get tested on the phone. If Vercel Deployment Protection
@@ -288,10 +292,11 @@ week's missed words.
   implementation that writes locally first and syncs. The Neon–Vercel integration can create a Neon
   branch per preview deployment. The same backend would let the grown-ups page edit word lists
   instead of editing JSON in the repo.
-- **The handwriting endpoint is public.** Anyone who finds `/api/handwriting` can spend the API key's
-  budget; only the request size (Vercel caps function bodies at 4.5 MB) limits each call. Before
-  sharing the deployment widely, set a spend limit on the key and add a Vercel Firewall rate-limit
-  rule for `/api/handwriting` (or real auth once the sync backend exists).
+- **The handwriting endpoint has no rate limit.** The access code keeps strangers out, but anyone
+  who has it can call the reader as fast as they like (each call is capped at 4,096 output tokens
+  and a 4.5 MB photo). Set a spend limit on the API key, add a Vercel Firewall rate-limit rule for
+  `/api/handwriting`, and replace the shared code with per-learner auth once the sync backend
+  exists.
 - **Offline games on mobile:** ship a copy of the web build inside the app, and fall back to it when
   the server can't be reached.
 - **Per-game difficulty settings** on the grown-ups page, passed to games in the session.

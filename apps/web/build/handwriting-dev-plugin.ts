@@ -10,7 +10,14 @@ const handlerPath = fileURLToPath(new URL('../server/handwriting.ts', import.met
  * Function, so the handwriting reader works locally with a key in `.env.local`.
  * Dev server only: `vite preview` (and so e2e) has no API, like a static host.
  */
-export function handwritingDevApi({ apiKey }: { apiKey: string | undefined }): Plugin {
+export function handwritingDevApi({
+  apiKey,
+  accessCode,
+}: {
+  apiKey: string | undefined;
+  /** Optional locally; deployments require one (see api/handwriting.ts). */
+  accessCode: string | undefined;
+}): Plugin {
   return {
     name: 'braincade-handwriting-api',
     apply: 'serve',
@@ -20,7 +27,7 @@ export function handwritingDevApi({ apiKey }: { apiKey: string | undefined }): P
         const handler = server.ssrLoadModule(handlerPath) as Promise<HandlerModule>;
         Promise.all([handler, toRequest(req)])
           .then(([{ handleHandwritingRequest }, request]) =>
-            handleHandwritingRequest(request, { apiKey }),
+            handleHandwritingRequest(request, { apiKey, accessCode }),
           )
           .then((response) => sendResponse(res, response))
           .catch(next);
