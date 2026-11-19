@@ -1,0 +1,9 @@
+{
+  "extends": "@braincade/tsconfig/node.json",
+  // Runs on Node with type stripping: relative imports keep their .ts extension.
+  "compilerOptions": {
+    // The generator test imports @braincade/game-sdk, which uses DOM types.
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["src", "vitest.config.ts"]
+}

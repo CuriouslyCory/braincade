@@ -1,0 +1,85 @@
+{
+  "id": "grade-5-starter",
+  "title": "Grade 5 starter words",
+  "description": "Commonly misspelled words for 10-11 year olds. Replace or extend with words from real assignments.",
+  "words": [
+    { "word": "their", "sentence": "The kids put on their coats.", "tags": ["homophone"] },
+    { "word": "there", "sentence": "Put the box over there.", "tags": ["homophone"] },
+    {
+      "word": "they're",
+      "sentence": "They're coming over after school.",
+      "tags": ["homophone", "contraction"]
+    },
+    { "word": "your", "sentence": "Is this your backpack?", "tags": ["homophone"] },
+    {
+      "word": "you're",
+      "sentence": "You're going to love this game.",
+      "tags": ["homophone", "contraction"]
+    },
+    { "word": "to", "sentence": "We walked to the park.", "tags": ["homophone"] },
+    { "word": "too", "sentence": "I want to come too.", "tags": ["homophone"] },
+    {
+      "word": "because",
+      "sentence": "I stayed inside because it was raining.",
+      "tags": ["common"]
+    },
+    { "word": "friend", "sentence": "My friend lives next door.", "tags": ["common", "ie-ei"] },
+    { "word": "believe", "sentence": "I believe you can do it.", "tags": ["ie-ei"] },
+    { "word": "receive", "sentence": "Did you receive my message?", "tags": ["ie-ei"] },
+    {
+      "word": "different",
+      "sentence": "Every snowflake is different.",
+      "tags": ["common", "double-letter"]
+    },
+    {
+      "word": "beginning",
+      "sentence": "Read it from the beginning.",
+      "tags": ["double-letter", "suffix-ing"]
+    },
+    {
+      "word": "stopped",
+      "sentence": "The bus stopped at the corner.",
+      "tags": ["double-letter", "suffix-ed"]
+    },
+    {
+      "word": "tried",
+      "sentence": "She tried the hardest level.",
+      "tags": ["suffix-ed", "y-to-i"]
+    },
+    {
+      "word": "happiness",
+      "sentence": "The puppy filled the house with happiness.",
+      "tags": ["suffix-ness", "y-to-i"]
+    },
+    { "word": "hoping", "sentence": "We are hoping for snow.", "tags": ["suffix-ing", "silent-e"] },
+    {
+      "word": "writing",
+      "sentence": "He is writing a comic.",
+      "tags": ["suffix-ing", "silent-e", "silent-letter"]
+    },
+    { "word": "knowledge", "sentence": "Reading builds knowledge.", "tags": ["silent-letter"] },
+    { "word": "answer", "sentence": "Write your answer on the line.", "tags": ["silent-letter"] },
+    {
+      "word": "separate",
+      "sentence": "Keep the red and blue blocks separate.",
+      "tags": ["tricky"]
+    },
+    { "word": "probably", "sentence": "It will probably rain tomorrow.", "tags": ["tricky"] },
+    { "word": "especially", "sentence": "I like dogs, especially puppies.", "tags": ["tricky"] },
+    { "word": "surprise", "sentence": "The party was a surprise.", "tags": ["tricky"] },
+    { "word": "unhappy", "sentence": "The cat was unhappy in the bath.", "tags": ["prefix-un"] },
+    {
+      "word": "rewrite",
+      "sentence": "Please rewrite the last sentence.",
+      "tags": ["prefix-re", "silent-letter"]
+    },
+    { "word": "important", "sentence": "Sleep is important for your brain.", "tags": ["common"] },
+    { "word": "experiment", "sentence": "Our science experiment made slime.", "tags": ["science"] },
+    {
+      "word": "measure",
+      "sentence": "Measure the table with a ruler.",
+      "tags": ["science", "math"]
+    },
+    { "word": "estimate", "sentence": "Estimate how many beans are in the jar.", "tags": ["math"] }
+  ]
+}

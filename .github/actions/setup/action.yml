@@ -1,0 +1,25 @@
+name: Setup
+description: Install Node, the repo's pnpm version, and dependencies
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v5
+      with:
+        node-version-file: .nvmrc
+        # pnpm is installed in the next step; the store is cached below.
+        package-manager-cache: false
+    - name: Install pnpm from packageManager
+      shell: bash
+      run: npm install -g "$(node -p "require('./package.json').packageManager")"
+    - name: Locate pnpm store
+      id: store
+      shell: bash
+      run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v4
+      with:
+        path: ${{ steps.store.outputs.path }}
+        key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: pnpm-${{ runner.os }}-
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile

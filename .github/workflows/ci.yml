@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: pnpm lint
+      - run: pnpm turbo run typecheck test build
+
+  e2e:
+    name: Web e2e (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter @braincade/web exec playwright install --with-deps chromium chromium-headless-shell
+      - run: pnpm --filter @braincade/web e2e
+        env:
+          CI: true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: apps/web/test-results
+          retention-days: 7
+
+  templates:
+    name: New-game templates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: Generate one game per template
+        run: |
+          pnpm new:game ci-react --template react --no-install
+          pnpm new:game ci-three --template three --no-install
+          pnpm install --no-frozen-lockfile
+      - run: pnpm turbo run typecheck test --filter='./games/*'
+      - run: pnpm --filter @braincade/web exec playwright install --with-deps chromium chromium-headless-shell
+      - name: Generated games boot in the launcher
+        run: pnpm --filter @braincade/web e2e e2e/all-games.spec.ts
+        env:
+          CI: true

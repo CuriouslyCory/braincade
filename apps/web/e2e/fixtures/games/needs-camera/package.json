@@ -1,0 +1,19 @@
+{
+  "name": "@braincade/fixture-needs-camera",
+  "version": "0.0.1",
+  "private": true,
+  "braincade": {
+    "id": "needs-camera",
+    "title": "Needs Camera",
+    "description": "E2E fixture requiring a capability no host provides yet.",
+    "icon": "📷",
+    "engine": "dom",
+    "skills": [
+      "handwriting"
+    ],
+    "requires": [
+      "camera"
+    ],
+    "status": "published"
+  }
+}

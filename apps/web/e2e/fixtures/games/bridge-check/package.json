@@ -1,0 +1,19 @@
+{
+  "name": "@braincade/fixture-bridge-check",
+  "version": "0.0.1",
+  "private": true,
+  "braincade": {
+    "id": "bridge-check",
+    "title": "Bridge Check",
+    "description": "E2E fixture that calls every host capability.",
+    "icon": "🔌",
+    "engine": "dom",
+    "skills": [
+      "spelling"
+    ],
+    "requires": [
+      "storage"
+    ],
+    "status": "published"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "stream",
+  "tasks": {
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
+    "typecheck": {
+      "dependsOn": ["transit"]
+    },
+    "test": {
+      "dependsOn": ["transit"],
+      "outputs": []
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "@braincade/web#build": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/games/**",
+        "!$TURBO_ROOT$/games/*/node_modules/**"
+      ],
+      "outputs": ["dist/**"],
+      "env": ["BRAINCADE_E2E_FIXTURES"]
+    },
+    "e2e": {
+      "dependsOn": ["transit"],
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "@braincade/mobile#build": {
+      "dependsOn": ["^build"],
+      "env": ["EXPO_PUBLIC_*"],
+      "outputs": ["dist/**"]
+    }
+  }
+}
