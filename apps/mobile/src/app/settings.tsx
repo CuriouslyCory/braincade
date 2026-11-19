@@ -4,8 +4,17 @@ import { useHost } from '../state';
 import { colors } from '../theme';
 
 export default function SettingsScreen() {
-  const { settings, profile, baseUrl, catalog, handwriting, saveSettings, saveProfile, reload } =
-    useHost();
+  const {
+    settings,
+    profile,
+    baseUrl,
+    catalog,
+    handwriting,
+    readerCodeUnreadable,
+    saveSettings,
+    saveProfile,
+    reload,
+  } = useHost();
   const [serverUrl, setServerUrl] = useState(settings.serverUrl);
   const [readerCode, setReaderCode] = useState(settings.readerCode);
   const [name, setName] = useState(profile.name);
@@ -26,7 +35,12 @@ export default function SettingsScreen() {
           .filter(Boolean),
         showDrafts,
       });
-      await saveSettings({ serverUrl: serverUrl.trim(), readerCode: readerCode.trim() });
+      const code = readerCode.trim();
+      await saveSettings({
+        serverUrl: serverUrl.trim(),
+        // A code that couldn't be read is kept unless a new one is typed.
+        readerCode: readerCodeUnreadable && !code ? undefined : code,
+      });
       setSaved(true);
     } catch (e) {
       setError(`Could not save: ${e instanceof Error ? e.message : String(e)}`);
@@ -76,7 +90,11 @@ export default function SettingsScreen() {
       />
       <Text style={styles.muted}>
         Robot reader:{' '}
-        {handwriting ? 'on' : 'off (needs the access code from whoever runs the server)'}
+        {readerCodeUnreadable
+          ? "off (couldn't read the saved access code; type it again)"
+          : handwriting
+            ? 'on'
+            : 'off (needs the access code from whoever runs the server)'}
       </Text>
 
       <View style={styles.row}>

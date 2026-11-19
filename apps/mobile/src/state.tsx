@@ -34,8 +34,11 @@ interface HostState {
   catalog: CatalogState;
   /** The server's handwriting reader, or null until a probe finds it configured. */
   handwriting: HandwritingCapability | null;
+  /** Secure storage failed on launch: the saved reader code is kept but couldn't be read. */
+  readerCodeUnreadable: boolean;
   reload(): Promise<void>;
-  saveSettings(settings: Settings): Promise<void>;
+  /** `readerCode: undefined` keeps the stored code (see readerCodeUnreadable). */
+  saveSettings(settings: { serverUrl: string; readerCode?: string | undefined }): Promise<void>;
   saveProfile(patch: Partial<LearnerProfile>): Promise<void>;
 }
 
@@ -46,6 +49,7 @@ export function HostProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<LearnerProfile | null>(null);
   const [catalog, setCatalog] = useState<CatalogState>({ status: 'loading' });
   const [handwriting, setHandwriting] = useState<HandwritingCapability | null>(null);
+  const [readerCodeUnreadable, setReaderCodeUnreadable] = useState(false);
 
   const baseUrl = useMemo(
     () =>
@@ -59,7 +63,10 @@ export function HostProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    void readSettings(AsyncStorage, SecureStore).then(setSettings);
+    void readSettings(AsyncStorage, SecureStore).then((loaded) => {
+      setSettings(loaded.settings);
+      setReaderCodeUnreadable(loaded.readerCodeUnreadable);
+    });
     void learner
       .getProfile()
       .then(setProfile)
@@ -113,16 +120,21 @@ export function HostProvider({ children }: { children: ReactNode }) {
         profile,
         catalog,
         handwriting,
+        readerCodeUnreadable,
         reload,
         saveSettings: async (next) => {
           await writeSettings(AsyncStorage, SecureStore, next);
-          setSettings(next);
+          setSettings({
+            serverUrl: next.serverUrl,
+            readerCode: next.readerCode ?? settings.readerCode,
+          });
+          if (next.readerCode !== undefined) setReaderCodeUnreadable(false);
         },
         saveProfile: async (patch) => {
           setProfile(await learner.saveProfile(patch));
         },
       },
-    [baseUrl, catalog, handwriting, profile, reload, settings],
+    [baseUrl, catalog, handwriting, profile, readerCodeUnreadable, reload, settings],
   );
 
   return value ? <HostContext.Provider value={value}>{children}</HostContext.Provider> : null;
