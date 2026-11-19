@@ -74,4 +74,20 @@ describe('usePlatform', () => {
     expect(seen).toEqual({ platform: withReader, ready: true });
     act(() => root.unmount());
   });
+
+  it('keeps waiting for the current probe when a superseded one settles first', async () => {
+    const root = createRoot(document.body.appendChild(document.createElement('div')));
+    await act(async () => root.render(<Probe />));
+    const resolveOld = probes.reprobe();
+    const resolveNew = probes.reprobe();
+
+    // The old probe answers first: still not ready, and its result is never shown.
+    await act(async () => resolveOld(probes.base));
+    expect(seen).toEqual({ platform: probes.base, ready: false });
+
+    const withReader = { ...probes.base, id: 'with-reader-2' } as unknown as HostPlatform;
+    await act(async () => resolveNew(withReader));
+    expect(seen).toEqual({ platform: withReader, ready: true });
+    act(() => root.unmount());
+  });
 });
