@@ -34,9 +34,9 @@ export function readerAccessCode(): string {
 }
 
 /**
- * The handwriting reader lives on this site's server (`api/handwriting`) and only
- * exists when the deploy has an API key and this device has its access code, so
- * ask the server. Never rejects: offline or no server means no handwriting.
+ * The handwriting reader lives on this site's server (`api/handwriting`), which may
+ * require an access code this device doesn't have, so ask the server. Never
+ * rejects: offline or no server means no handwriting.
  */
 function probe(): Promise<HostPlatform> {
   const handwriting = createHandwritingService(new URL('.', document.baseURI).href, {

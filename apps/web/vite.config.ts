@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       braincadeGames({ gamesDirs, wordLists }),
-      handwritingDevApi({ apiKey: env.ANTHROPIC_API_KEY, accessCode: env.BRAINCADE_ACCESS_CODE }),
+      handwritingDevApi({ accessCode: env.BRAINCADE_ACCESS_CODE }),
     ],
     build: {
       // three.js alone is ~530 kB; it is only loaded by games that use it.

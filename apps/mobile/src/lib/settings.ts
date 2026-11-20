@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 const KEY = 'braincade:mobile-settings';
 /**
- * Kept out of the settings JSON: it authorizes paid handwriting reads on the server.
+ * Kept out of the settings JSON: it authorizes handwriting reads on the server.
  * Stored with the origin of the server it was entered for (the server the app actually
  * talks to, which may come from the build or the dev machine when the URL field is
  * empty), so it is only ever sent to that server.

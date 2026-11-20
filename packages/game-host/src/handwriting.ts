@@ -4,7 +4,7 @@ import type { HandwritingCapability } from './bridge';
 
 /** Path of the handwriting endpoint, relative to the Braincade server's base URL. */
 export const HANDWRITING_ENDPOINT = 'api/handwriting';
-/** Header carrying the household access code the server checks before using its paid API key. */
+/** Header carrying the household access code a deployment can require before reading photos. */
 export const ACCESS_CODE_HEADER = 'x-braincade-access-code';
 
 export interface HandwritingService extends HandwritingCapability {
@@ -65,7 +65,7 @@ export function createHandwritingService(
           method: 'POST',
           headers: { 'content-type': 'application/json', accept: 'application/json', ...auth },
           body: JSON.stringify({ image }),
-          // The game stops waiting at this point, so don't leave a paid read running behind it.
+          // The game stops waiting at this point, so don't keep the connection open behind it.
           signal: timeoutSignal(HANDWRITING_TIMEOUT_MS),
         });
       } catch (error) {

@@ -1,13 +1,9 @@
 import { handleHandwritingRequest } from '../server/handwriting.js';
 
-// Vercel Function for `/api/handwriting`. Set ANTHROPIC_API_KEY and
-// BRAINCADE_ACCESS_CODE in the Vercel project's environment variables to turn the
-// handwriting reader on: a deployment never spends the key for callers without the code.
-const options = () => ({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  accessCode: process.env.BRAINCADE_ACCESS_CODE,
-  requireAccessCode: true,
-});
+// Vercel Function for `/api/handwriting`: reads handwriting with an open model on the
+// function's CPU (no API key, no per-photo cost). Optionally set BRAINCADE_ACCESS_CODE in
+// the project's environment variables so only devices that know it can use the reader.
+const options = () => ({ accessCode: process.env.BRAINCADE_ACCESS_CODE });
 
 export function GET(request: Request): Promise<Response> {
   return handleHandwritingRequest(request, options());

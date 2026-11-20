@@ -3,21 +3,19 @@ import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 
 type HandlerModule = typeof import('../server/handwriting');
-/** MAX_BODY_BYTES in server/handwriting.ts (not imported, so the config never loads the SDK). */
+/** MAX_BODY_BYTES in server/handwriting.ts (not imported, so the config never loads the reader). */
 const DEV_BODY_LIMIT = 6 * 1024 * 1024;
 const handlerPath = fileURLToPath(new URL('../server/handwriting.ts', import.meta.url));
 
 /**
  * Serves `/api/handwriting` from `vite dev` with the same handler as the Vercel
- * Function, so the handwriting reader works locally with a key in `.env.local`.
+ * Function, so the handwriting reader works locally (the model downloads on first read).
  * Dev server only: `vite preview` (and so e2e) has no API, like a static host.
  */
 export function handwritingDevApi({
-  apiKey,
   accessCode,
 }: {
-  apiKey: string | undefined;
-  /** Optional locally; deployments require one (see api/handwriting.ts). */
+  /** BRAINCADE_ACCESS_CODE, optional (see api/handwriting.ts). */
   accessCode: string | undefined;
 }): Plugin {
   return {
@@ -25,11 +23,11 @@ export function handwritingDevApi({
     apply: 'serve',
     configureServer(server) {
       server.middlewares.use('/api/handwriting', (req, res, next) => {
-        // Loaded through the dev server: picks up edits, and builds never load the SDK.
+        // Loaded through the dev server: picks up edits, and builds never load the reader.
         const handler = server.ssrLoadModule(handlerPath) as Promise<HandlerModule>;
         Promise.all([handler, toRequest(req)])
           .then(([{ handleHandwritingRequest }, request]) =>
-            handleHandwritingRequest(request, { apiKey, accessCode }),
+            handleHandwritingRequest(request, { accessCode }),
           )
           .then(async (response) => {
             await sendResponse(res, response);

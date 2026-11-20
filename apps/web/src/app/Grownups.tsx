@@ -170,8 +170,8 @@ export function Grownups() {
 }
 
 /**
- * The handwriting reader uses a paid API key, so the server only reads photos for
- * devices that know the household access code (BRAINCADE_ACCESS_CODE).
+ * When the deployment sets a household access code (BRAINCADE_ACCESS_CODE), the server
+ * only reads photos for devices that know it.
  */
 function ReaderSettings() {
   const { platform: current, ready } = usePlatform();

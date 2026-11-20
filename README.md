@@ -27,10 +27,10 @@ pnpm dev:mobile     # Expo; scan the QR code with Expo Go on the phone
 The phone and the computer need to be on the same Wi-Fi network. In development the mobile app loads
 games from the web dev server on the computer running Metro, so run `pnpm dev` too.
 
-Games that read handwriting need an Anthropic API key. Copy `apps/web/.env.example` to
-`apps/web/.env.local` and set `ANTHROPIC_API_KEY`; `pnpm dev` serves `/api/handwriting` with it
-(`BRAINCADE_ACCESS_CODE` is optional locally and required on Vercel).
-Without a key those games show as unavailable and everything else works.
+Games that read handwriting work out of the box: `pnpm dev` serves `/api/handwriting`, which runs an
+open handwriting model (TrOCR) on your computer's CPU. The first read downloads the model (~65 MB).
+To require an access code, copy `apps/web/.env.example` to `apps/web/.env.local` and set
+`BRAINCADE_ACCESS_CODE`.
 
 | Command                     | What it does                                                             |
 | --------------------------- | ------------------------------------------------------------------------ |
@@ -73,8 +73,9 @@ The main design decisions:
    release. The app store build only changes when the native shell changes.
 5. **Capabilities are negotiated.** A game lists what it can't run without (`requires: ["speech"]`).
    Launchers disable games that the device can't support. Both hosts provide `camera`. `handwriting`
-   is a reader on the web server (`apps/web/api/handwriting.ts`, Claude vision), so each host asks the
-   server at startup whether it is configured and only offers `handwriting` when it is.
+   is a reader on the web server (`apps/web/api/handwriting.ts`, an open TrOCR model on the CPU), so
+   each host asks the server at startup whether this device may use it and only offers
+   `handwriting` when it may.
 
 ### Repository layout
 
@@ -228,7 +229,7 @@ week's missed words.
 | Story typer / typing races                        | React template plus `words.next`, `progress.record(mode: 'typed')`                                                         | Ready to build                  |
 | Theme games around his interests                  | `ctx.session.learner.interests` (set on the grown-ups page)                                                                | Ready to build                  |
 | "Beat the robot" / Google Lens scoring            | Show words and a printable scoresheet, then record results with `mode: 'handwritten'`. Recognition happens in the Lens app | Ready to build (manual scoring) |
-| In-app photo of handwriting checked automatically | `camera.capture`, then `handwriting.read` (needs `ANTHROPIC_API_KEY` on the server)                                        | Ready to build                  |
+| In-app photo of handwriting checked automatically | `camera.capture`, then `handwriting.read` (TrOCR on the server; Robot Reader is the first game)                            | Ready to build                  |
 | Photo word hunt                                   | `camera.capture`. Checking what's in the photo would need a new capability                                                 | Partially                       |
 | Finger-writing letters on the phone               | A canvas game works today. Export the canvas as a PNG data URL and send it to `handwriting.read` for recognition           | Ready to build                  |
 
@@ -258,13 +259,14 @@ week's missed words.
 - The output is static: `index.html` (launcher), `play.html` (game frame), `catalog.json`, and
   hashed assets. Hash routing means no rewrites are needed. The one exception is the Vercel Function
   `api/handwriting.ts`, the handwriting reader.
-- **Handwriting reader:** set `ANTHROPIC_API_KEY` and `BRAINCADE_ACCESS_CODE` (a household
-  passphrase) in the project's Environment Variables (for Production, and Preview if drafts should
-  read handwriting too). Then enter the access code once per device: web Grown-ups → Robot reader,
-  or the mobile app's Grown-ups screen. The function stays off until both variables are set, and
-  only reads photos for callers that send the code, so a stranger who finds the URL can't spend
-  the key. Without them, games that need `handwriting` show as unavailable. Photos of the
-  learner's writing go to the Anthropic API to be read and are not stored by Braincade.
+- **Handwriting reader:** needs no setup or API key. The function runs Microsoft's TrOCR model
+  (`Xenova/trocr-small-handwritten`, pinned revision) on its CPU, downloading it (~65 MB) to `/tmp`
+  on a cold start, so the first read after a while takes a few seconds longer. The function bundle
+  is about 190 MB, under Vercel's 250 MB limit. Photos are read by your own deployment and are not
+  stored. Because reading uses your Vercel compute, consider setting `BRAINCADE_ACCESS_CODE` (a
+  household passphrase) in the project's Environment Variables; each device then enters it once
+  (web Grown-ups → Robot reader, or the mobile app's Grown-ups screen) before handwriting games
+  turn on.
 - `catalog.json` and the HTML pages are served with `must-revalidate`, so a deploy shows up on the
   next app launch, and the hashed assets are cached immutably.
 - **Preview deployments** are how drafts get tested on the phone. If Vercel Deployment Protection
@@ -292,11 +294,16 @@ week's missed words.
   implementation that writes locally first and syncs. The Neon–Vercel integration can create a Neon
   branch per preview deployment. The same backend would let the grown-ups page edit word lists
   instead of editing JSON in the repo.
-- **The handwriting endpoint has no rate limit.** The access code keeps strangers out, but anyone
-  who has it can call the reader as fast as they like (each call is capped at 4,096 output tokens
-  and a 4.5 MB photo). Set a spend limit on the API key, add a Vercel Firewall rate-limit rule for
-  `/api/handwriting`, and replace the shared code with per-learner auth once the sync backend
-  exists.
+- **The handwriting reader autocorrects some misspellings.** TrOCR's decoder leans toward real
+  words, so a misspelled word is often read as the correct spelling ("neccesary" → "necessary"),
+  and the game then counts it as right. It reads neat print well and loses accuracy on joined-up
+  or messy writing. Treat Robot Reader's spelling results as generous until the reader improves
+  (options: a character-level model without a language model, or fine-tuning on children's
+  writing).
+- **The handwriting endpoint has no rate limit.** An access code keeps strangers out, but anyone
+  who has it can call the reader as fast as they like, using the deployment's compute. Add a Vercel
+  Firewall rate-limit rule for `/api/handwriting` if that matters, and replace the shared code with
+  per-learner auth once the sync backend exists.
 - **Offline games on mobile:** ship a copy of the web build inside the app, and fall back to it when
   the server can't be reached.
 - **Per-game difficulty settings** on the grown-ups page, passed to games in the session.

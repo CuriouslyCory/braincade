@@ -23,7 +23,7 @@ async function listen(): Promise<string> {
     },
     ssrLoadModule: () => import('../server/handwriting'),
   };
-  const plugin = handwritingDevApi({ apiKey: 'sk-test', accessCode: undefined });
+  const plugin = handwritingDevApi({ accessCode: undefined });
   (plugin.configureServer as (server: unknown) => void)(fakeVite);
   const listening = http.createServer((req, res) =>
     middleware?.(req, res, (error) => {

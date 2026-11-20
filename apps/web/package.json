@@ -14,15 +14,16 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.10.0",
     "@braincade/content": "workspace:*",
     "@braincade/game-host": "workspace:*",
     "@braincade/game-sdk": "workspace:*",
     "@braincade/learning": "workspace:*",
     "@braincade/printables": "workspace:*",
+    "@huggingface/transformers": "4.3.2",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-router": "^8.5.1",
+    "sharp": "^0.35.5",
     "zod": "catalog:"
   },
   "devDependencies": {
