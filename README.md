@@ -301,6 +301,8 @@ week's missed words.
   or messy writing. Treat Robot Reader's spelling results as generous until the reader improves
   (options: a character-level model without a language model, or fine-tuning on children's
   writing).
+- **Pen colour:** the reader finds pencil, black, and blue pen (including bright gel pen), but
+  not red pen: red is skipped so that the red margin on lined paper isn't read as writing.
 - **The handwriting endpoint has no global rate limit.** The access code keeps strangers out, and
   each instance reads one photo at a time, but Vercel can start more instances, so anyone with the
   code can still use a lot of compute. Add a Vercel Firewall rate-limit rule for `/api/handwriting`

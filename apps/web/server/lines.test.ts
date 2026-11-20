@@ -4,6 +4,7 @@ import {
   inkMask,
   type LineBox,
   lineImage,
+  photoInk,
   removeRules,
   type TextLine,
   toBrightness,
@@ -43,9 +44,7 @@ function photo({ paper = [240, 240, 236], room = [70, 60, 55] } = {}) {
 }
 
 function lines(rgba: Uint8Array) {
-  const brightness = toBrightness(rgba, W, H);
-  const ink = inkMask(brightness, W, H);
-  return findLines(ink, W, H, { rgba });
+  return findLines(photoInk(rgba, W, H), W, H, { rgba });
 }
 
 const centreY = (b: LineBox) => (b.y0 + b.y1) / 2;
@@ -66,6 +65,19 @@ describe('inkMask', () => {
     expect(ink[101 * W + 202]).toBe(1); // a stroke
     expect(ink[300 * W + 400]).toBe(0); // blank paper
     expect(ink[201 * W + 400]).toBe(0); // the rule
+  });
+
+  it('finds dark and bright blue pen as ink, while blue rules and a red margin stay paper', () => {
+    const p = photo();
+    p.paint(160, 200, 640, 202, [170, 190, 225]); // light blue rule
+    p.paint(180, 65, 182, 455, [230, 80, 80]); // red margin
+    p.letter(200, 100, 18, 28, [20, 40, 200]); // ballpoint blue
+    p.letter(260, 100, 18, 28, [86, 100, 210]); // bright gel-pen blue
+    const ink = photoInk(p.rgba, W, H);
+    expect(ink[101 * W + 202]).toBe(1);
+    expect(ink[101 * W + 262]).toBe(1);
+    expect(ink[201 * W + 400]).toBe(0);
+    expect(ink[300 * W + 181]).toBe(0);
   });
 
   it('copes with uneven lighting', () => {
@@ -127,6 +139,16 @@ describe('findLines', () => {
     expect(found[0]?.components).toHaveLength(8);
   });
 
+  it('reads a sentence written in blue pen on lined paper', () => {
+    const p = photo();
+    for (let y = 100; y < 450; y += 70) p.paint(155, y + 30, 645, y + 32, [170, 190, 225]);
+    p.paint(190, 65, 192, 455, [230, 80, 80]);
+    for (let i = 0; i < 6; i++) p.letter(205 + i * 24, 104, 18, 28, [20, 40, 200]);
+    const { lines: found } = lines(p.rgba);
+    expect(found).toHaveLength(1);
+    expect(found[0]?.components).toHaveLength(6);
+  });
+
   it('keeps thin strokes like l and I', () => {
     const p = photo();
     p.word(200, 150, 2);
@@ -175,12 +197,21 @@ describe('lineImage', () => {
   });
 
   it("keeps the strokes' shading, with the paper around them made white", () => {
-    const brightness = new Float32Array(W * H).fill(200);
-    brightness[10 * W + 10] = 50;
-    const { rgb } = lineImage(labels, W, line, brightness);
+    const rgba = new Uint8Array(W * H * 4).fill(200);
+    rgba.set([50, 50, 50, 255], (10 * W + 10) * 4);
+    const { rgb } = lineImage(labels, W, line, rgba);
     expect(pixel(rgb, 5, 5)[0]).toBeCloseTo((50 / 200) * 255, 0);
     expect(pixel(rgb, 4, 4)).toEqual([255, 255, 255]); // next to the mark: paper, scaled to white
     expect(pixel(rgb, 0, 0)).toEqual([255, 255, 255]); // away from it: white
+  });
+
+  it('keeps blue pen dark and a pale blue rule beside it light', () => {
+    const rgba = new Uint8Array(W * H * 4).fill(240);
+    rgba.set([20, 40, 200, 255], (10 * W + 10) * 4); // blue pen stroke (kept)
+    rgba.set([170, 190, 225, 255], (10 * W + 11) * 4); // pale rule pixel beside it
+    const { rgb } = lineImage(labels, W, line, rgba);
+    expect(pixel(rgb, 5, 5)[0]).toBeLessThan(80);
+    expect(pixel(rgb, 6, 5)[0]).toBeGreaterThan(220);
   });
 });
 

@@ -35,6 +35,45 @@ export function toBrightness(rgba: Uint8Array, width: number, height: number): F
   return out;
 }
 
+/** Perceived brightness (luma) of each pixel. Blue or red pen is dark by this measure. */
+export function toLuma(rgba: Uint8Array, width: number, height: number): Float32Array {
+  const out = new Float32Array(width * height);
+  for (let i = 0; i < out.length; i++) {
+    out[i] =
+      0.299 * (rgba[4 * i] ?? 0) + 0.587 * (rgba[4 * i + 1] ?? 0) + 0.114 * (rgba[4 * i + 2] ?? 0);
+  }
+  return out;
+}
+
+/**
+ * Ink in a photo, by two tests, either of which marks ink:
+ * - darker than the paper in every channel (pencil, black or grey pen), which leaves light
+ *   blue rules, red margins, and coloured paper as paper;
+ * - clearly darker than the paper overall and not red: blue pen, even bright gel pen. Light
+ *   blue rules aren't dark enough, and a red margin is skipped by colour.
+ */
+export function photoInk(
+  rgba: Uint8Array,
+  width: number,
+  height: number,
+  { window = 31 } = {},
+): Uint8Array {
+  const neutral = inkMask(toBrightness(rgba, width, height), width, height, { window });
+  const coloured = inkMask(toLuma(rgba, width, height), width, height, {
+    window,
+    contrast: 0.3,
+    maxInk: 150,
+  });
+  for (let i = 0; i < neutral.length; i++) {
+    if (!coloured[i] || neutral[i]) continue;
+    const r = rgba[4 * i] ?? 0;
+    const g = rgba[4 * i + 1] ?? 0;
+    const b = rgba[4 * i + 2] ?? 0;
+    if (r < g + 40 || r < b + 40) neutral[i] = 1; // not a red margin
+  }
+  return neutral;
+}
+
 /**
  * Ink pixels (1) vs paper (0): darker than the local average by `contrast`, so uneven
  * lighting across a photo doesn't swallow faint pencil, and darker than `maxInk`.
@@ -236,27 +275,32 @@ export function pageArea(
   const cell = Math.max(8, Math.round(Math.max(width, height) / 64));
   const cols = Math.ceil(width / cell);
   const rowsN = Math.ceil(height / cell);
+  // Each cell's colour is its median, not its mean: a thin rule or margin line covers few of
+  // a cell's pixels, so it doesn't change the median, and the page grows across it.
   const mean = new Float32Array(cols * rowsN * 3);
   const inked = new Uint8Array(cols * rowsN);
+  const channel = [
+    new Uint8Array(cell * cell),
+    new Uint8Array(cell * cell),
+    new Uint8Array(cell * cell),
+  ];
   for (let cy = 0; cy < rowsN; cy++) {
     for (let cx = 0; cx < cols; cx++) {
-      let r = 0;
-      let g = 0;
-      let b = 0;
       let n = 0;
       let dark = 0;
       for (let y = cy * cell; y < Math.min(height, (cy + 1) * cell); y++) {
         for (let x = cx * cell; x < Math.min(width, (cx + 1) * cell); x++) {
           const i = y * width + x;
-          r += rgba[4 * i] ?? 0;
-          g += rgba[4 * i + 1] ?? 0;
-          b += rgba[4 * i + 2] ?? 0;
+          for (let ch = 0; ch < 3; ch++) (channel[ch] as Uint8Array)[n] = rgba[4 * i + ch] ?? 0;
           dark += ink[i] ?? 0;
           n++;
         }
       }
       const k = cy * cols + cx;
-      mean.set([r / n, g / n, b / n], k * 3);
+      for (let ch = 0; ch < 3; ch++) {
+        const values = (channel[ch] as Uint8Array).subarray(0, n).sort();
+        mean[k * 3 + ch] = values[n >> 1] ?? 0;
+      }
       inked[k] = dark > 0.01 * n ? 1 : 0;
     }
   }
@@ -567,12 +611,7 @@ function segmentOf(members: Component[]): Row {
 }
 
 /** A line as clean black ink on white RGB (only its own marks), the input TrOCR expects. */
-export function lineImage(
-  labels: Int32Array,
-  width: number,
-  line: TextLine,
-  brightness?: Float32Array,
-) {
+export function lineImage(labels: Int32Array, width: number, line: TextLine, rgba?: Uint8Array) {
   const w = line.x1 - line.x0;
   const h = line.y1 - line.y0;
   const keep = new Set(line.components);
@@ -585,23 +624,32 @@ export function lineImage(
   const rgb = new Uint8ClampedArray(w * h * 3).fill(255);
   const paint = (x: number, y: number, value: number) =>
     rgb.fill(value, (y * w + x) * 3, (y * w + x) * 3 + 3);
-  if (!brightness) {
+  if (!rgba) {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (kept(x, y)) paint(x, y, 0);
     return { rgb, width: w, height: h };
   }
-  // With the photo's brightness, keep the strokes' real shading (TrOCR was trained on
-  // greyscale scans, and soft edges read better than hard black): pixels at or next to the
-  // line's marks, scaled so the paper around them is white. Everything else is white.
-  let paperSum = 0;
-  let paperCount = 0;
+  // With the photo, keep the strokes' real shading (TrOCR was trained on greyscale scans,
+  // and soft edges read better than hard black), scaled so the paper around them is white.
+  // Two measures of brightness: overall (luma), where blue pen is dark, and the brightest
+  // channel, where pale blue rules are light. A stroke takes the darker, the pixels around
+  // it the lighter, so blue writing stays dark and a rule beside a letter stays pale.
+  const at = (x: number, y: number) => 4 * ((line.y0 + y) * width + line.x0 + x);
+  const luma = (i: number) =>
+    0.299 * (rgba[i] ?? 0) + 0.587 * (rgba[i + 1] ?? 0) + 0.114 * (rgba[i + 2] ?? 0);
+  const brightest = (i: number) => Math.max(rgba[i] ?? 0, rgba[i + 1] ?? 0, rgba[i + 2] ?? 0);
+  let lumaPaper = 0;
+  let brightPaper = 0;
+  let count = 0;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       if (kept(x, y)) continue;
-      paperSum += brightness[(line.y0 + y) * width + line.x0 + x] ?? 255;
-      paperCount++;
+      lumaPaper += luma(at(x, y));
+      brightPaper += brightest(at(x, y));
+      count++;
     }
   }
-  const paper = paperCount ? paperSum / paperCount : 255;
+  lumaPaper = count ? lumaPaper / count : 255;
+  brightPaper = count ? brightPaper / count : 255;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       let near = false;
@@ -609,8 +657,9 @@ export function lineImage(
         for (let dx = -1; dx <= 1 && !near; dx++) near = kept(x + dx, y + dy);
       }
       if (!near) continue;
-      const value = brightness[(line.y0 + y) * width + line.x0 + x] ?? 255;
-      paint(x, y, Math.min(255, (value / paper) * 255));
+      const a = (luma(at(x, y)) / lumaPaper) * 255;
+      const b = (brightest(at(x, y)) / brightPaper) * 255;
+      paint(x, y, Math.min(255, kept(x, y) ? Math.min(a, b) : Math.max(a, b)));
     }
   }
   return { rgb, width: w, height: h };

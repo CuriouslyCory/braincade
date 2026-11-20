@@ -4,6 +4,7 @@ import {
   clampReading,
   createReadLimiter,
   handleHandwritingRequest,
+  imageFormat,
   MAX_BODY_BYTES,
 } from './handwriting';
 import type { HandwritingReader } from './trocr';
@@ -109,6 +110,24 @@ describe('handleHandwritingRequest', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toHaveProperty('error');
     expect(reader).not.toHaveBeenCalled();
+  });
+
+  it('checks the image bytes, not just the label: JPEG, PNG, and WebP only', async () => {
+    const reader = readsAs([]);
+    const gif = Buffer.from('GIF89a\x01\x00\x01\x00', 'binary').toString('base64');
+    const response = await handleHandwritingRequest(
+      post({ image: `data:image/jpeg;base64,${gif}` }),
+      { reader },
+    );
+    expect(response.status).toBe(400);
+    expect(reader).not.toHaveBeenCalled();
+
+    expect(imageFormat(Uint8Array.from([0xff, 0xd8, 0xff, 0xdb]))).toBe('jpeg');
+    expect(imageFormat(Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))).toBe(
+      'png',
+    );
+    expect(imageFormat(new TextEncoder().encode('RIFF\x00\x00\x00\x00WEBPVP8 '))).toBe('webp');
+    expect(imageFormat(new TextEncoder().encode('<svg xmlns='))).toBeNull();
   });
 
   it('rejects bodies over the size limit with 413', async () => {

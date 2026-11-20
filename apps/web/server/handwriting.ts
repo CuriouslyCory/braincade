@@ -135,6 +135,11 @@ export async function handleHandwritingRequest(
   if (!image) {
     return json(400, { error: 'The image must be a base64 JPEG, PNG, or WebP data URL.' });
   }
+  // The label is only a claim: check the bytes, since the decoder accepts many more formats.
+  const bytes = Uint8Array.from(Buffer.from(image[2] as string, 'base64'));
+  if (!imageFormat(bytes)) {
+    return json(400, { error: 'The image must be a JPEG, PNG, or WebP.' });
+  }
 
   const slot = (options.limiter ?? sharedLimiter).acquire();
   if (!slot) {
@@ -147,7 +152,6 @@ export async function handleHandwritingRequest(
 
   try {
     const reader = options.reader ?? (await import('./trocr.js')).readHandwriting;
-    const bytes = Uint8Array.from(Buffer.from(image[2] as string, 'base64'));
     let expired = false;
     const work = slot.then(async (release) => {
       try {
@@ -176,6 +180,17 @@ export async function handleHandwritingRequest(
     console.error('[handwriting] read failed:', error instanceof Error ? error.message : error);
     return json(502, { error: 'The handwriting reader failed.' });
   }
+}
+
+/** The image's actual format, from its first bytes (null: not JPEG, PNG, or WebP). */
+export function imageFormat(bytes: Uint8Array): 'jpeg' | 'png' | 'webp' | null {
+  const starts = (offset: number, ...values: number[]) =>
+    values.every((value, i) => bytes[offset + i] === value);
+  if (starts(0, 0xff, 0xd8, 0xff)) return 'jpeg';
+  if (starts(0, 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'png';
+  // RIFF....WEBP
+  if (starts(0, 0x52, 0x49, 0x46, 0x46) && starts(8, 0x57, 0x45, 0x42, 0x50)) return 'webp';
+  return null;
 }
 
 /**

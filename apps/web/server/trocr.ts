@@ -9,7 +9,7 @@ import {
   VisionEncoderDecoderModel,
 } from '@huggingface/transformers';
 import sharp from 'sharp';
-import { findLines, inkMask, lineImage, toBrightness } from './lines.js';
+import { findLines, lineImage, photoInk } from './lines.js';
 
 // The handwriting reader: Microsoft's TrOCR (small, handwritten), an open model that runs
 // on the function's CPU, so reading a photo costs nothing per call. It reads one line of
@@ -62,7 +62,8 @@ function loadModel(): Promise<Model> {
 
 /** Decode a photo to RGBA pixels: upright, at most MAX_SIDE, transparency on white paper. */
 export async function decodePhoto(image: Uint8Array) {
-  const { data, info } = await sharp(image, { failOn: 'none' })
+  // 40 MP is far more than any camera photo here; it bounds what one request can decode.
+  const { data, info } = await sharp(image, { failOn: 'none', limitInputPixels: 40_000_000 })
     .rotate() // phone photos carry their orientation in EXIF
     .resize({ width: MAX_SIDE, height: MAX_SIDE, fit: 'inside', withoutEnlargement: true })
     // A drawing exported as a transparent PNG: its background must read as paper, not as
@@ -79,15 +80,14 @@ export const readHandwriting: HandwritingReader = async (image) => {
   const { data, width, height } = await decodePhoto(image);
   // Scale the lighting window with the photo: about a letter's height.
   const window = Math.max(15, Math.round(Math.max(width, height) * 0.022)) | 1;
-  const brightness = toBrightness(data, width, height);
-  const ink = inkMask(brightness, width, height, { window });
+  const ink = photoInk(data, width, height, { window });
   const { labels, lines } = findLines(ink, width, height, { rgba: data });
   if (lines.length === 0) return { words: [] };
 
   const { processor, tokenizer, model } = await loadModel();
   const words: ReadWord[] = [];
   for (const found of lines) {
-    const line = lineImage(labels, width, found, brightness);
+    const line = lineImage(labels, width, found, data);
     const { pixel_values } = await processor(new RawImage(line.rgb, line.width, line.height, 3));
     words.push(...(await readLine(model, tokenizer, pixel_values as Tensor)));
   }
