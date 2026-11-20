@@ -27,6 +27,11 @@ pnpm dev:mobile     # Expo; scan the QR code with Expo Go on the phone
 The phone and the computer need to be on the same Wi-Fi network. In development the mobile app loads
 games from the web dev server on the computer running Metro, so run `pnpm dev` too.
 
+Games that read handwriting work out of the box locally: `pnpm dev` serves `/api/handwriting`, which
+runs an open handwriting model (TrOCR) on your computer's CPU. The first read downloads the model
+(~65 MB). An access code is optional locally (copy `apps/web/.env.example` to `apps/web/.env.local`
+and set `BRAINCADE_ACCESS_CODE`) and required on Vercel (see Deployment).
+
 | Command                     | What it does                                                             |
 | --------------------------- | ------------------------------------------------------------------------ |
 | `pnpm new:game <id>`        | Create a game from a template (see below)                                |
@@ -57,8 +62,8 @@ The main design decisions:
 2. **Games only talk to the host through `ctx`.** Words, speech, printing, saved data, and progress
    all go over a small validated message protocol (`packages/game-sdk/src/protocol.ts`). The host
    implements each capability natively: Web Speech or `expo-speech`, the browser print dialog or
-   `expo-print`, localStorage or AsyncStorage. Games behave the same everywhere, and learner data stays
-   with the host, not with each game.
+   `expo-print`, localStorage or AsyncStorage, a camera sheet over the game or the phone's camera.
+   Games behave the same everywhere, and learner data stays with the host, not with each game.
 3. **Content and difficulty are separate from game code.** A game asks `ctx.words.next()` and the
    learning engine decides which words come back: missed and due words first, mastered words only
    for occasional review. Adding this week's spelling words, or tagged harder words, changes what every
@@ -67,14 +72,16 @@ The main design decisions:
    lists). The mobile app reads it on launch, so a merged game reaches the phone without an app store
    release. The app store build only changes when the native shell changes.
 5. **Capabilities are negotiated.** A game lists what it can't run without (`requires: ["speech"]`).
-   Launchers disable games that the device can't support. That leaves room for future capabilities
-   like `camera` and `handwriting` without breaking older hosts.
+   Launchers disable games that the device can't support. Both hosts provide `camera`. `handwriting`
+   is a reader on the web server (`apps/web/api/handwriting.ts`, an open TrOCR model on the CPU), so
+   each host asks the server at startup whether this device may use it and only offers
+   `handwriting` when it may.
 
 ### Repository layout
 
 | Path                  | Package                  | Purpose                                                                                                |
 | --------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `apps/web`            | `@braincade/web`         | Launcher, grown-ups page, `play.html` frame, Vite plugin that discovers games and emits `catalog.json` |
+| `apps/web`            | `@braincade/web`         | Launcher, grown-ups page, `play.html` frame, Vite plugin that emits `catalog.json`, `/api/handwriting` |
 | `apps/mobile`         | `@braincade/mobile`      | Expo Router app: launcher, WebView player, settings, native capabilities                               |
 | `games/*`             | `@braincade/game-<id>`   | One package per game (empty for now)                                                                   |
 | `packages/game-sdk`   | `@braincade/game-sdk`    | `defineGame`, `GameContext`, manifest schema, protocol, transports, `bootFrame`, test helpers          |
@@ -151,6 +158,8 @@ export default defineGame({
 | `ctx.speech.speak(text, { rate })` / `stop()`      | Text-to-speech                                                                                                   |
 | `ctx.print(document)`                              | Print a worksheet built from `printables` blocks                                                                 |
 | `ctx.storage.get/set(key, value)`                  | JSON save data scoped to this game                                                                               |
+| `ctx.camera.capture({ prompt, facing, maxSize })`  | A photo from the host: `{ image, width, height }` (JPEG data URL), or `null` if the learner cancels              |
+| `ctx.handwriting.read(image)`                      | Read the handwriting in a photo: `{ words: [{ text, legible }] }` in reading order, misspellings kept as written |
 | `ctx.on('pause' \| 'resume', fn)`                  | App backgrounded or tab hidden                                                                                   |
 | `ctx.session`                                      | Learner name and interests (for theming), platform, capabilities                                                 |
 | `ctx.has(capability)`                              | Check before using optional features                                                                             |
@@ -220,9 +229,9 @@ week's missed words.
 | Story typer / typing races                        | React template plus `words.next`, `progress.record(mode: 'typed')`                                                         | Ready to build                  |
 | Theme games around his interests                  | `ctx.session.learner.interests` (set on the grown-ups page)                                                                | Ready to build                  |
 | "Beat the robot" / Google Lens scoring            | Show words and a printable scoresheet, then record results with `mode: 'handwritten'`. Recognition happens in the Lens app | Ready to build (manual scoring) |
-| In-app photo of handwriting checked automatically | `camera` and `handwriting` capabilities are reserved in the manifest schema, but no host provides them yet                 | Planned                         |
-| Photo word hunt                                   | Needs `camera`                                                                                                             | Planned                         |
-| Finger-writing letters on the phone               | A canvas game works today. Automatic letter recognition needs `handwriting`                                                | Partially                       |
+| In-app photo of handwriting checked automatically | `camera.capture`, then `handwriting.read` (TrOCR on the server; Robot Reader is the first game)                            | Ready to build                  |
+| Photo word hunt                                   | `camera.capture`. Checking what's in the photo would need a new capability                                                 | Partially                       |
+| Finger-writing letters on the phone               | A canvas game works today. Export the canvas as a PNG data URL and send it to `handwriting.read` for recognition           | Ready to build                  |
 
 ## Mobile app
 
@@ -248,7 +257,17 @@ week's missed words.
 - **Root Directory:** `apps/web`. Vercel uses the `installCommand`/`buildCommand` from `vercel.json`,
   which installs the pinned pnpm, runs `turbo run build --filter=@braincade/web`, and serves `dist/`.
 - The output is static: `index.html` (launcher), `play.html` (game frame), `catalog.json`, and
-  hashed assets. Hash routing means no rewrites are needed.
+  hashed assets. Hash routing means no rewrites are needed. The one exception is the Vercel Function
+  `api/handwriting.ts`, the handwriting reader.
+- **Handwriting reader:** needs no API key. The function runs Microsoft's TrOCR model
+  (`Xenova/trocr-small-handwritten`, pinned revision) on its CPU, downloading it (~65 MB) to `/tmp`
+  on a cold start, so the first read after a while takes a few seconds longer. The function bundle
+  is about 190 MB, under Vercel's 250 MB limit. Photos are read by your own deployment and are not
+  stored. Reading uses your Vercel compute, so **set `BRAINCADE_ACCESS_CODE`** (a household
+  passphrase) in the project's Environment Variables: the reader stays off until it is set, and
+  each device enters it once (web Grown-ups → Robot reader, or the mobile app's Grown-ups screen).
+  Each function instance reads one photo at a time with a short queue, answering "busy" (429)
+  beyond that.
 - `catalog.json` and the HTML pages are served with `must-revalidate`, so a deploy shows up on the
   next app launch, and the hashed assets are cached immutably.
 - **Preview deployments** are how drafts get tested on the phone. If Vercel Deployment Protection
@@ -276,7 +295,18 @@ week's missed words.
   implementation that writes locally first and syncs. The Neon–Vercel integration can create a Neon
   branch per preview deployment. The same backend would let the grown-ups page edit word lists
   instead of editing JSON in the repo.
-- **Camera and handwriting capabilities** for the photo and finger-writing ideas.
+- **The handwriting reader autocorrects some misspellings.** TrOCR's decoder leans toward real
+  words, so a misspelled word is often read as the correct spelling ("neccesary" → "necessary"),
+  and the game then counts it as right. It reads neat print well and loses accuracy on joined-up
+  or messy writing. Treat Robot Reader's spelling results as generous until the reader improves
+  (options: a character-level model without a language model, or fine-tuning on children's
+  writing).
+- **Pen colour:** the reader finds pencil, black, and blue pen (including bright gel pen), but
+  not red pen: red is skipped so that the red margin on lined paper isn't read as writing.
+- **The handwriting endpoint has no global rate limit.** The access code keeps strangers out, and
+  each instance reads one photo at a time, but Vercel can start more instances, so anyone with the
+  code can still use a lot of compute. Add a Vercel Firewall rate-limit rule for `/api/handwriting`
+  if that matters, and replace the shared code with per-learner auth once the sync backend exists.
 - **Offline games on mobile:** ship a copy of the web build inside the app, and fall back to it when
   the server can't be reached.
 - **Per-game difficulty settings** on the grown-ups page, passed to games in the session.

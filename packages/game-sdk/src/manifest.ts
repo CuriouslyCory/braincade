@@ -3,8 +3,8 @@ import { z } from 'zod';
 /**
  * Host features a game can use. A game lists the ones it cannot run without in
  * `requires`; launchers hide or disable games whose requirements the current
- * platform does not provide. `camera` and `handwriting` are reserved for the
- * photo/handwriting ideas and are not implemented by any host yet.
+ * platform does not provide. `camera` is the host's photo UI; `handwriting` is a
+ * handwriting reader the host reaches over the network (so it can come and go).
  */
 export const CAPABILITIES = ['storage', 'speech', 'print', 'camera', 'handwriting'] as const;
 export const capabilitySchema = z.enum(CAPABILITIES);

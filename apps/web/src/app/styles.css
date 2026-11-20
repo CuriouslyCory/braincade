@@ -259,3 +259,92 @@ td {
 .sessions {
   padding-left: 18px;
 }
+
+/* Camera sheet: the host's camera UI, shown above the game frame (src/host/camera.ts). */
+.camera-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 75%);
+}
+
+.camera-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(100%, 560px);
+  max-height: 100%;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.camera-prompt {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.2rem;
+}
+
+.camera-preview {
+  width: 100%;
+  min-height: 0;
+  max-height: 60vh;
+  border-radius: 12px;
+  background: #000;
+  object-fit: contain;
+}
+
+.camera-status {
+  margin: 0;
+  color: var(--muted);
+}
+
+.camera-status:empty {
+  display: none;
+}
+
+.camera-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.camera-actions > * {
+  flex: 1 1 auto;
+  min-height: 44px;
+}
+
+.camera-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--accent-2);
+  color: #222;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.camera-upload:focus-within {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.camera-cancel {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

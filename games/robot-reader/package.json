@@ -1,0 +1,43 @@
+{
+  "name": "@braincade/game-robot-reader",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "braincade": {
+    "id": "robot-reader",
+    "title": "Robot Reader",
+    "description": "Copy a silly sentence on paper, snap a photo, and hear what the robot reads back.",
+    "engine": "dom",
+    "skills": [
+      "handwriting",
+      "spelling"
+    ],
+    "requires": [
+      "camera",
+      "handwriting"
+    ],
+    "status": "draft",
+    "icon": "🤖"
+  },
+  "dependencies": {
+    "@braincade/game-sdk": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@braincade/tsconfig": "workspace:*",
+    "@testing-library/react": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "jsdom": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

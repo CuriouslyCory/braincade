@@ -1,0 +1,76 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { fileURLToPath } from 'node:url';
+import type { Plugin } from 'vite';
+
+type HandlerModule = typeof import('../server/handwriting');
+/** MAX_BODY_BYTES in server/handwriting.ts (not imported, so the config never loads the reader). */
+const DEV_BODY_LIMIT = 6 * 1024 * 1024;
+const handlerPath = fileURLToPath(new URL('../server/handwriting.ts', import.meta.url));
+
+/**
+ * Serves `/api/handwriting` from `vite dev` with the same handler as the Vercel
+ * Function, so the handwriting reader works locally (the model downloads on first read).
+ * Dev server only: `vite preview` (and so e2e) has no API, like a static host.
+ */
+export function handwritingDevApi({
+  accessCode,
+}: {
+  /** BRAINCADE_ACCESS_CODE, optional (see api/handwriting.ts). */
+  accessCode: string | undefined;
+}): Plugin {
+  return {
+    name: 'braincade-handwriting-api',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/api/handwriting', (req, res, next) => {
+        // Loaded through the dev server: picks up edits, and builds never load the reader.
+        const handler = server.ssrLoadModule(handlerPath) as Promise<HandlerModule>;
+        Promise.all([handler, toRequest(req)])
+          .then(([{ handleHandwritingRequest }, request]) =>
+            handleHandwritingRequest(request, { accessCode }),
+          )
+          .then(async (response) => {
+            await sendResponse(res, response);
+            // An oversized upload stopped being buffered; discard whatever is still arriving.
+            if (!req.readableEnded) req.resume();
+          })
+          .catch(next);
+      });
+    },
+  };
+}
+
+async function toRequest(req: IncomingMessage): Promise<Request> {
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(req.headers)) {
+    if (Array.isArray(value)) for (const v of value) headers.append(name, v);
+    else if (value !== undefined) headers.set(name, value);
+  }
+  const method = req.method ?? 'GET';
+  let body: Buffer | undefined;
+  if (method !== 'GET' && method !== 'HEAD') {
+    // Stop buffering just past the handler's limit; it then answers 413. Leaving the loop
+    // must not destroy the request, or the socket closes before that answer is sent.
+    const chunks: Buffer[] = [];
+    let size = 0;
+    for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+      chunks.push(chunk as Buffer);
+      size += (chunk as Buffer).byteLength;
+      if (size > DEV_BODY_LIMIT) break;
+    }
+    body = Buffer.concat(chunks);
+  }
+  return new Request('http://localhost/api/handwriting', {
+    method,
+    headers,
+    ...(body ? { body: new Uint8Array(body) } : {}),
+  });
+}
+
+async function sendResponse(res: ServerResponse, response: Response) {
+  res.statusCode = response.status;
+  response.headers.forEach((value, name) => {
+    res.setHeader(name, value);
+  });
+  res.end(Buffer.from(await response.arrayBuffer()));
+}

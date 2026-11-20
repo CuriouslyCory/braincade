@@ -2,8 +2,10 @@ export type { AttemptInput, WordStatus } from '@braincade/learning';
 export type { PrintableBlock, PrintableDocumentInput } from '@braincade/printables';
 export { createHostClient, type HostClient, type RequestOptions } from './client';
 export {
+  type CaptureOptions,
   createGameContext,
   type GameContext,
+  HANDWRITING_TIMEOUT_MS,
   type SpeakOptions,
   type WordRequest,
 } from './context';

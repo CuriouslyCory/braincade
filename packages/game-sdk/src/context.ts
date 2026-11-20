@@ -2,7 +2,13 @@ import type { AttemptInput } from '@braincade/learning';
 import type { PrintableDocumentInput } from '@braincade/printables';
 import type { HostClient } from './client';
 import type { Capability, GameManifest } from './manifest';
-import type { EndResult, GameWord, SessionInfo } from './protocol';
+import type {
+  CapturedImage,
+  EndResult,
+  GameWord,
+  HandwritingReading,
+  SessionInfo,
+} from './protocol';
 
 export interface WordRequest {
   /** How many words to return (default 10). Fewer come back if the lists run out. */
@@ -18,6 +24,18 @@ export interface SpeakOptions {
   rate?: number;
   language?: string;
 }
+
+export interface CaptureOptions {
+  /** Short instruction shown while the camera is open ("Snap your sentence"). */
+  prompt?: string;
+  /** Which camera to prefer (default: the back camera). */
+  facing?: 'environment' | 'user';
+  /** Longest side of the returned image in pixels, 320-2048 (default 1600). */
+  maxSize?: number;
+}
+
+/** Handwriting recognition can take several seconds on a slow connection. */
+export const HANDWRITING_TIMEOUT_MS = 45_000;
 
 /**
  * Everything a game can do. Games get this in `mount` and should not reach for
@@ -43,6 +61,16 @@ export interface GameContext {
   };
   /** Send a worksheet to the printer (browser print dialog / system print sheet). */
   print(document: PrintableDocumentInput): Promise<void>;
+  /** Take a photo with the host's camera UI (requires the `camera` capability). */
+  camera: {
+    /** Resolves to `null` if the learner closes the camera without taking a photo. */
+    capture(options?: CaptureOptions): Promise<CapturedImage | null>;
+  };
+  /** Read handwriting in a photo (requires the `handwriting` capability). */
+  handwriting: {
+    /** Words as written, misspellings kept; unreadable words come back `legible: false`. */
+    read(image: CapturedImage | string): Promise<HandwritingReading>;
+  };
   /** Save data for this game only (high scores, unlocked levels). Values must be JSON. */
   storage: {
     get<T = unknown>(key: string): Promise<T | undefined>;
@@ -96,6 +124,18 @@ export function createGameContext(
     print: async (document) => {
       // The print dialog stays open until the user closes it, so never time out.
       await client.request('print.document', { document }, { timeoutMs: null });
+    },
+    camera: {
+      // The camera stays open until the learner snaps or cancels, so never time out.
+      capture: (options = {}) => client.request('camera.capture', options, { timeoutMs: null }),
+    },
+    handwriting: {
+      read: (image) =>
+        client.request(
+          'handwriting.read',
+          { image: typeof image === 'string' ? image : image.image },
+          { timeoutMs: HANDWRITING_TIMEOUT_MS },
+        ),
     },
     storage: {
       get: async <T>(key: string) =>

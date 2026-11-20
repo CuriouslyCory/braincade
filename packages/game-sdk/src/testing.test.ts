@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTestContext } from './testing';
+import { createTestContext, TEST_IMAGE } from './testing';
 
 describe('createTestContext', () => {
   it('records what a game does through the context', async () => {
@@ -42,5 +42,32 @@ describe('createTestContext', () => {
     const t = createTestContext({ session: { capabilities: ['storage'] } });
     expect(t.ctx.has('speech')).toBe(false);
     expect(t.ctx.has('storage')).toBe(true);
+  });
+
+  it('fakes the camera and handwriting reader', async () => {
+    const t = createTestContext({
+      session: { capabilities: ['camera', 'handwriting'] },
+      photos: [null],
+      read: () => 'Teh cat',
+    });
+    expect(await t.ctx.camera.capture({ prompt: 'Snap it' })).toBeNull();
+    const photo = await t.ctx.camera.capture();
+    expect(photo).toEqual(TEST_IMAGE);
+    expect(await t.ctx.handwriting.read(TEST_IMAGE)).toEqual({
+      words: [
+        { text: 'Teh', legible: true },
+        { text: 'cat', legible: true },
+      ],
+    });
+    expect(t.captures).toEqual([{ prompt: 'Snap it' }, {}]);
+    expect(t.reads).toEqual([TEST_IMAGE.image]);
+  });
+
+  it('rejects camera and handwriting when the capability is missing', async () => {
+    const t = createTestContext();
+    await expect(t.ctx.camera.capture()).rejects.toMatchObject({ code: 'unsupported' });
+    await expect(t.ctx.handwriting.read(TEST_IMAGE)).rejects.toMatchObject({
+      code: 'unsupported',
+    });
   });
 });

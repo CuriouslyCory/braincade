@@ -1,11 +1,13 @@
 import { games } from 'virtual:braincade/games';
 import { launcherEntries, platformCapabilities } from '@braincade/game-host';
 import { Link } from 'react-router';
-import { platform } from '../host/platform';
 import { useProfile } from './use-learner';
+import { usePlatform } from './use-platform';
 
 export function Launcher() {
   const { profile } = useProfile();
+  // Re-renders when the handwriting probe settles, enabling games that need it.
+  const { platform } = usePlatform();
   if (!profile) return null;
 
   const showDrafts = import.meta.env.DEV || profile.showDrafts;

@@ -1,11 +1,23 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { settingsToSave } from '../lib/settings';
 import { useHost } from '../state';
 import { colors } from '../theme';
 
 export default function SettingsScreen() {
-  const { settings, profile, baseUrl, catalog, saveSettings, saveProfile, reload } = useHost();
+  const {
+    settings,
+    profile,
+    baseUrl,
+    catalog,
+    handwriting,
+    readerCodeUnreadable,
+    saveSettings,
+    saveProfile,
+    reload,
+  } = useHost();
   const [serverUrl, setServerUrl] = useState(settings.serverUrl);
+  const [readerCode, setReaderCode] = useState(settings.readerCode);
   const [name, setName] = useState(profile.name);
   const [interests, setInterests] = useState(profile.interests.join(', '));
   const [showDrafts, setShowDrafts] = useState(profile.showDrafts);
@@ -24,7 +36,14 @@ export default function SettingsScreen() {
           .filter(Boolean),
         showDrafts,
       });
-      await saveSettings({ serverUrl: serverUrl.trim() });
+      const next = settingsToSave({
+        saved: settings,
+        serverUrl,
+        readerCode,
+        readerCodeUnreadable,
+      });
+      await saveSettings(next);
+      if (next.readerCode === '') setReaderCode('');
       setSaved(true);
     } catch (e) {
       setError(`Could not save: ${e instanceof Error ? e.message : String(e)}`);
@@ -62,6 +81,23 @@ export default function SettingsScreen() {
           : catalog.status === 'error'
             ? catalog.message
             : 'Loading…'}
+      </Text>
+
+      <Field
+        label="Robot reader access code"
+        value={readerCode}
+        onChangeText={setReaderCode}
+        secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      <Text style={styles.muted}>
+        Robot reader:{' '}
+        {readerCodeUnreadable
+          ? "off (couldn't read the saved access code; type it again)"
+          : handwriting
+            ? 'on'
+            : 'off (needs the access code from whoever runs the server)'}
       </Text>
 
       <View style={styles.row}>

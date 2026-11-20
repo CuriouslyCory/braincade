@@ -3,7 +3,7 @@ import { createHostBridge, type HostBridge, playUrl } from '@braincade/game-host
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { iframeTransport } from '../host/iframe-transport';
-import { platform } from '../host/platform';
+import { usePlatform } from './use-platform';
 
 type PlayerState = 'loading' | 'running' | 'error';
 
@@ -15,10 +15,12 @@ export function Player() {
   const bridgeRef = useRef<HostBridge | null>(null);
   const [state, setState] = useState<PlayerState>('loading');
   const [error, setError] = useState('');
+  const { platform, ready } = usePlatform();
 
   useEffect(() => {
     const frame = frameRef.current;
-    if (!game || !frame) return;
+    // Wait for the capability probe so the session reports what this device can do.
+    if (!game || !frame || !ready) return;
     setState('loading');
     const bridge = createHostBridge({
       ...platform,
@@ -42,7 +44,7 @@ export function Player() {
       bridge.dispose();
       bridgeRef.current = null;
     };
-  }, [game, navigate]);
+  }, [game, navigate, platform, ready]);
 
   const exit = useCallback(async () => {
     await bridgeRef.current?.requestExit();

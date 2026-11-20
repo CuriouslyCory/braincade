@@ -18,7 +18,12 @@ type GameWebView = WebView<object>;
 
 export default function PlayScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { catalog, baseUrl } = useHost();
+  const { catalog, baseUrl, handwriting } = useHost();
+  // Read the reader when the session starts (a deep link can open this screen before
+  // the probe finishes), but don't depend on it: a probe finishing mid-game must not
+  // re-create the bridge under a running game.
+  const latestHandwriting = useRef(handwriting);
+  latestHandwriting.current = handwriting;
   const loaded = catalog.status === 'ready' ? catalog.catalog : null;
   const game = loaded?.games.find((g) => g.id === id);
   const webViewRef = useRef<GameWebView>(null);
@@ -33,7 +38,7 @@ export default function PlayScreen() {
       webViewRef.current?.injectJavaScript(script),
     );
     const bridge = createHostBridge({
-      ...nativePlatform(loaded.wordLists),
+      ...nativePlatform(loaded.wordLists, latestHandwriting.current),
       transport,
       game,
       onReady: () => setState('running'),

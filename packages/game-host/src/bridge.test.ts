@@ -183,9 +183,69 @@ describe('host bridge + game frame', () => {
       { speech: undefined, printer: undefined },
     );
     expect(ctx.has('speech')).toBe(false);
+    expect(ctx.has('camera')).toBe(false);
     await expect(ctx.speech.speak('hi')).rejects.toMatchObject({ code: 'unsupported' });
     await expect(ctx.print({ title: 'x', pages: [{ blocks: [] }] })).rejects.toMatchObject({
       code: 'unsupported',
+    });
+    await expect(ctx.camera.capture()).rejects.toMatchObject({ code: 'unsupported' });
+    await expect(ctx.handwriting.read('data:image/png;base64,AAAA')).rejects.toMatchObject({
+      code: 'unsupported',
+    });
+  });
+
+  it('takes photos and reads handwriting through the platform', async () => {
+    const photo = { image: 'data:image/jpeg;base64,AAAA', width: 4, height: 3 };
+    const capture = vi.fn(async () => photo);
+    const read = vi.fn(async () => ({ words: [{ text: 'Teh', legible: true }] }));
+    let ctx!: GameContext;
+    await run(
+      (_root, c) => {
+        ctx = c;
+        return undefined;
+      },
+      { camera: { capture }, handwriting: { read } },
+    );
+    expect(ctx.session.capabilities).toEqual([
+      'storage',
+      'speech',
+      'print',
+      'camera',
+      'handwriting',
+    ]);
+
+    const taken = await ctx.camera.capture({ prompt: 'Snap it' });
+    expect(taken).toEqual(photo);
+    expect(capture).toHaveBeenCalledWith({
+      prompt: 'Snap it',
+      facing: 'environment',
+      maxSize: 1600,
+    });
+    expect(await ctx.handwriting.read(photo)).toEqual({ words: [{ text: 'Teh', legible: true }] });
+    expect(read).toHaveBeenCalledWith(photo.image);
+
+    capture.mockResolvedValueOnce(null as never);
+    expect(await ctx.camera.capture()).toBeNull();
+  });
+
+  it('rejects camera and handwriting results that break the protocol', async () => {
+    let ctx!: GameContext;
+    await run(
+      (_root, c) => {
+        ctx = c;
+        return undefined;
+      },
+      {
+        camera: { capture: async () => ({ image: 'not-a-data-url', width: 1, height: 1 }) },
+        handwriting: { read: async () => ({ words: 'nope' }) as never },
+      },
+    );
+    await expect(ctx.camera.capture()).rejects.toMatchObject({ code: 'internal' });
+    await expect(ctx.handwriting.read('data:image/png;base64,AAAA')).rejects.toMatchObject({
+      code: 'internal',
+    });
+    await expect(ctx.handwriting.read('https://example.com/a.png')).rejects.toMatchObject({
+      code: 'bad-request',
     });
   });
 

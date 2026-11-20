@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const WEB_CAPABILITIES = ['storage', 'speech', 'print'];
+const WEB_CAPABILITIES = ['storage', 'speech', 'print', 'camera'];
 
 /**
  * Smoke test for every game in the catalog, including ones added later: each

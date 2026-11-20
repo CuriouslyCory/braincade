@@ -93,10 +93,10 @@ export function createHostClient(
     },
     dispose() {
       stop();
-      for (const [, entry] of pending) {
-        clearTimeout(entry.timer);
-        entry.reject(new HostError('internal', 'Client disposed'));
-      }
+      // The frame is being torn down after the game's cleanup ran, so drop pending requests
+      // without settling them: no game code should run past this point, and rejecting would
+      // turn every fire-and-forget call (`void ctx.speech.speak(...)`) into an unhandled rejection.
+      for (const [, entry] of pending) clearTimeout(entry.timer);
       pending.clear();
       listeners.clear();
     },

@@ -1,0 +1,217 @@
+{
+  "id": "grade-5-silly-sentences",
+  "title": "Grade 5 silly sentences",
+  "description": "Short, silly sentences to copy by hand, each built around a grade-5 trouble word. Used by Robot Reader.",
+  "words": [
+    {
+      "word": "weird",
+      "sentence": "A weird llama knitted a scarf for the moon.",
+      "tags": ["silly-sentence", "ie-ei"]
+    },
+    {
+      "word": "neighbor",
+      "sentence": "Our neighbor walks his goldfish on a tiny leash.",
+      "tags": ["silly-sentence", "ie-ei", "silent-letter"]
+    },
+    {
+      "word": "ceiling",
+      "sentence": "The cat napped on the ceiling like a fuzzy lamp.",
+      "tags": ["silly-sentence", "ie-ei"]
+    },
+    {
+      "word": "piece",
+      "sentence": "A dragon traded his castle for one piece of toast.",
+      "tags": ["silly-sentence", "ie-ei", "homophone"]
+    },
+    {
+      "word": "height",
+      "sentence": "My sandwich grew to the height of a giraffe.",
+      "tags": ["silly-sentence", "ie-ei"]
+    },
+    {
+      "word": "foreign",
+      "sentence": "The penguin spoke a foreign language made of sneezes.",
+      "tags": ["silly-sentence", "ie-ei", "silent-letter"]
+    },
+    {
+      "word": "science",
+      "sentence": "In science class, the hamster wore tiny safety goggles.",
+      "tags": ["silly-sentence", "silent-letter"]
+    },
+    {
+      "word": "necessary",
+      "sentence": "Is it necessary for a pickle to wear a tuxedo?",
+      "tags": ["silly-sentence", "double-letter", "commonly-misspelled"]
+    },
+    {
+      "word": "accommodate",
+      "sentence": "The tiny hotel could not accommodate a hippo in pajamas.",
+      "tags": ["silly-sentence", "double-letter", "commonly-misspelled"]
+    },
+    {
+      "word": "tomorrow",
+      "sentence": "Tomorrow my socks will run for class president.",
+      "tags": ["silly-sentence", "double-letter"]
+    },
+    {
+      "word": "embarrass",
+      "sentence": "Please don't embarrass the jellyfish at the dance party.",
+      "tags": ["silly-sentence", "double-letter", "commonly-misspelled"]
+    },
+    {
+      "word": "occurred",
+      "sentence": "It never occurred to the cow that she could juggle.",
+      "tags": ["silly-sentence", "double-letter", "suffix-ed"]
+    },
+    {
+      "word": "committee",
+      "sentence": "A committee of squirrels voted to ban broccoli forever.",
+      "tags": ["silly-sentence", "double-letter"]
+    },
+    {
+      "word": "disappear",
+      "sentence": "My homework will disappear if the toaster sees it.",
+      "tags": ["silly-sentence", "prefix-dis", "double-letter"]
+    },
+    {
+      "word": "address",
+      "sentence": "The snail wrote his address on a very slow letter.",
+      "tags": ["silly-sentence", "double-letter"]
+    },
+    {
+      "word": "balloon",
+      "sentence": "A purple balloon adopted three rubber ducks.",
+      "tags": ["silly-sentence", "double-letter"]
+    },
+    {
+      "word": "knight",
+      "sentence": "The knight rode a skateboard into the bakery.",
+      "tags": ["silly-sentence", "silent-letter", "homophone"]
+    },
+    {
+      "word": "wrinkle",
+      "sentence": "The elephant ironed every wrinkle out of his trunk.",
+      "tags": ["silly-sentence", "silent-letter"]
+    },
+    {
+      "word": "island",
+      "sentence": "We found an island shaped exactly like a waffle.",
+      "tags": ["silly-sentence", "silent-letter"]
+    },
+    {
+      "word": "thumb",
+      "sentence": "My thumb started singing opera during the spelling test.",
+      "tags": ["silly-sentence", "silent-letter"]
+    },
+    {
+      "word": "doubt",
+      "sentence": "I doubt that bananas can drive a school bus.",
+      "tags": ["silly-sentence", "silent-letter"]
+    },
+    {
+      "word": "listen",
+      "sentence": "Listen closely, because the potatoes are telling jokes.",
+      "tags": ["silly-sentence", "silent-letter"]
+    },
+    {
+      "word": "scissors",
+      "sentence": "The scissors refused to cut anything but spaghetti.",
+      "tags": ["silly-sentence", "silent-letter", "double-letter"]
+    },
+    {
+      "word": "honest",
+      "sentence": "The honest robot admitted he ate all the crayons.",
+      "tags": ["silly-sentence", "silent-letter"]
+    },
+    {
+      "word": "muscle",
+      "sentence": "The ant flexed one muscle and lifted a whole pizza.",
+      "tags": ["silly-sentence", "silent-letter"]
+    },
+    {
+      "word": "vacation",
+      "sentence": "The cactus went on vacation to a snowy mountain.",
+      "tags": ["silly-sentence", "suffix-tion"]
+    },
+    {
+      "word": "invention",
+      "sentence": "My invention turns broccoli into bubble gum.",
+      "tags": ["silly-sentence", "suffix-tion"]
+    },
+    {
+      "word": "attention",
+      "sentence": "The meatball tapped the microphone and asked for attention.",
+      "tags": ["silly-sentence", "suffix-tion", "double-letter"]
+    },
+    {
+      "word": "decision",
+      "sentence": "The goat made a bold decision to wear a tutu.",
+      "tags": ["silly-sentence", "suffix-sion"]
+    },
+    {
+      "word": "television",
+      "sentence": "The television sneezed and switched to the cartoon channel.",
+      "tags": ["silly-sentence", "suffix-sion"]
+    },
+    {
+      "word": "confusion",
+      "sentence": "There was great confusion when the cows learned to tap dance.",
+      "tags": ["silly-sentence", "suffix-sion"]
+    },
+    {
+      "word": "beautiful",
+      "sentence": "A beautiful toad sang lullabies to the lawn mower.",
+      "tags": ["silly-sentence", "suffix-ful", "commonly-misspelled"]
+    },
+    {
+      "word": "careful",
+      "sentence": "Be careful, the jelly is planning a sneaky escape.",
+      "tags": ["silly-sentence", "suffix-ful"]
+    },
+    {
+      "word": "excitement",
+      "sentence": "In all the excitement, the duck forgot his trousers.",
+      "tags": ["silly-sentence", "suffix-ment"]
+    },
+    {
+      "word": "argument",
+      "sentence": "The spoon and the fork had a loud argument about soup.",
+      "tags": ["silly-sentence", "suffix-ment", "commonly-misspelled"]
+    },
+    {
+      "word": "finally",
+      "sentence": "The sloth finally finished his breakfast at midnight.",
+      "tags": ["silly-sentence", "suffix-ly", "double-letter"]
+    },
+    {
+      "word": "comfortable",
+      "sentence": "The walrus found a comfortable nap spot in the bathtub.",
+      "tags": ["silly-sentence", "suffix-able", "commonly-misspelled"]
+    },
+    {
+      "word": "weather",
+      "sentence": "The weather report says it will rain jellybeans.",
+      "tags": ["silly-sentence", "homophone"]
+    },
+    {
+      "word": "whether",
+      "sentence": "The frog wondered whether his hat was too fancy.",
+      "tags": ["silly-sentence", "homophone"]
+    },
+    {
+      "word": "library",
+      "sentence": "A shy octopus works at the library on weekends.",
+      "tags": ["silly-sentence", "commonly-misspelled"]
+    },
+    {
+      "word": "Wednesday",
+      "sentence": "Every Wednesday, my dog teaches yoga to the pigeons.",
+      "tags": ["silly-sentence", "silent-letter", "commonly-misspelled"]
+    },
+    {
+      "word": "vegetable",
+      "sentence": "Every vegetable in the fridge joined a marching band.",
+      "tags": ["silly-sentence", "commonly-misspelled"]
+    }
+  ]
+}

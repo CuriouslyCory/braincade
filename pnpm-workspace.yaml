@@ -4,6 +4,12 @@ packages:
   - packages/*
   - tooling/*
 
+# The handwriting reader's runtime ships its CPU binaries in the package; these
+# install scripts only fetch optional CUDA libraries and check protobufjs CLI versions.
+allowBuilds:
+  onnxruntime-node: false
+  protobufjs: false
+
 # Shared versions. Games and packages reference these with "catalog:" so every
 # game ships the same React / three.js and the web bundle shares one copy.
 # (apps/mobile pins its own versions so `expo install` stays authoritative.)

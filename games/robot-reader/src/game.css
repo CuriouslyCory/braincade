@@ -1,0 +1,422 @@
+.robot-reader {
+  --ink: #1d1b3a;
+  --paper: #fffdf5;
+  --line: #b9d3f5;
+  --go: #ffcf3f;
+  --accent: #4be3c1;
+  --good: #1f9d55;
+  --warn: #c2410c;
+  --muted: #5b5a78;
+
+  box-sizing: border-box;
+  min-height: 100%;
+  /* The host's exit button sits in the top-left 60×60 px. */
+  padding: 72px 16px 24px;
+  display: flex;
+  justify-content: center;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 18px;
+  line-height: 1.4;
+  color: #fff;
+  background: radial-gradient(circle at top, #3b2a8f, #12122a);
+}
+
+.robot-reader *,
+.robot-reader *::before,
+.robot-reader *::after {
+  box-sizing: border-box;
+}
+
+.robot-reader .screen {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.robot-reader h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 7vw, 2.6rem);
+}
+
+.robot-reader p {
+  margin: 0;
+}
+
+.robot-reader .progress {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.robot-reader .instruction {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+/* Robot */
+.robot-reader .robot {
+  font-size: clamp(4rem, 22vw, 7rem);
+  line-height: 1;
+}
+
+.robot-reader .robot-small {
+  font-size: 3rem;
+}
+
+.robot-reader .robot-bob {
+  animation: rr-bob 1.6s ease-in-out infinite;
+}
+
+.robot-reader .robot-think {
+  display: inline-block;
+  animation: rr-think 0.9s ease-in-out infinite alternate;
+}
+
+.robot-reader .bubble {
+  position: relative;
+  max-width: 34rem;
+  padding: 14px 18px;
+  border-radius: 20px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 1.15rem;
+  text-align: left;
+}
+
+.robot-reader .robot-says {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.robot-reader .bubble-left {
+  flex: 1;
+  border-top-left-radius: 4px;
+}
+
+.robot-reader .bubble-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.robot-reader .reading {
+  font-size: clamp(1.25rem, 5vw, 1.6rem);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* Unreadable words, as the robot "read" them */
+.robot-reader .gibberish {
+  display: inline-block;
+  font-weight: 800;
+  font-style: italic;
+  color: #d6336c;
+  animation: rr-wobble 0.8s ease-in-out infinite alternate;
+}
+
+.robot-reader .gibberish:nth-of-type(3n + 2) {
+  color: #7048e8;
+  animation-delay: -0.3s;
+}
+
+.robot-reader .gibberish:nth-of-type(3n + 3) {
+  color: #0c8599;
+  animation-delay: -0.55s;
+}
+
+/* The sentence to copy, on lined paper */
+.robot-reader .paper {
+  width: 100%;
+  padding: 18px 20px;
+  border-radius: 12px;
+  color: var(--ink);
+  background-color: var(--paper);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(1.6em - 2px),
+    var(--line) calc(1.6em - 2px),
+    var(--line) 1.6em
+  );
+  background-position: 0 14px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+  font-size: clamp(1.5rem, 6.5vw, 2.3rem);
+}
+
+.robot-reader .sentence {
+  font-weight: 700;
+  line-height: 1.6;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.robot-reader mark {
+  padding: 0 4px;
+  border-radius: 6px;
+  color: inherit;
+  background: #ffe066;
+}
+
+/* Photos */
+.robot-reader .photo-wrap {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.robot-reader .photo {
+  display: block;
+  max-width: 100%;
+  max-height: 45vh;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.robot-reader .photo-small {
+  max-width: 160px;
+  max-height: 120px;
+  opacity: 0.9;
+}
+
+.robot-reader .scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: var(--accent);
+  box-shadow: 0 0 16px 4px var(--accent);
+  animation: rr-scan 1.4s ease-in-out infinite alternate;
+}
+
+.robot-reader .thinking {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.robot-reader .dots span {
+  animation: rr-blink 1.2s infinite;
+}
+
+.robot-reader .dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.robot-reader .dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Verdict and word-by-word results */
+.robot-reader .verdict {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.robot-reader .verdict-perfect {
+  color: var(--go);
+}
+
+.robot-reader .comparison {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.robot-reader .chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 56px;
+  padding: 6px 10px;
+  border: 3px solid transparent;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.robot-reader .chip-word {
+  font-weight: 700;
+}
+
+.robot-reader .chip-note {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.robot-reader .chip-correct {
+  background: #d3f9d8;
+}
+
+.robot-reader .chip-correct .chip-note {
+  color: var(--good);
+  font-weight: 800;
+}
+
+.robot-reader .chip-misspelled {
+  background: #ffe8cc;
+}
+
+.robot-reader .chip-misspelled .chip-note {
+  color: var(--warn);
+}
+
+.robot-reader .chip-missing {
+  background: #e9ecef;
+  border-style: dashed;
+  border-color: #adb5bd;
+}
+
+.robot-reader .chip-missing .chip-word {
+  color: var(--muted);
+}
+
+.robot-reader .chip-unreadable {
+  background: #f3d9fa;
+}
+
+.robot-reader .chip-extra {
+  flex-direction: row;
+  gap: 4px;
+  background: #e7f5ff;
+}
+
+.robot-reader .chip-target {
+  border-color: #f59f00;
+}
+
+.robot-reader .notice {
+  max-width: 34rem;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #fff3bf;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Buttons: big tap targets */
+.robot-reader .actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.robot-reader .btn {
+  min-height: 52px;
+  min-width: 52px;
+  padding: 12px 22px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--ink);
+  background: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 0 rgb(0 0 0 / 0.25);
+  touch-action: manipulation;
+}
+
+.robot-reader .btn-go {
+  background: var(--go);
+}
+
+.robot-reader .btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgb(0 0 0 / 0.25);
+}
+
+.robot-reader .btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.robot-reader .btn:focus-visible {
+  outline: 4px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.robot-reader .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .robot-reader .actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+}
+
+@keyframes rr-bob {
+  50% {
+    transform: translateY(-10px) rotate(-4deg);
+  }
+}
+
+@keyframes rr-think {
+  from {
+    transform: rotate(-10deg);
+  }
+  to {
+    transform: rotate(10deg);
+  }
+}
+
+@keyframes rr-wobble {
+  from {
+    transform: rotate(-4deg) translateY(1px);
+  }
+  to {
+    transform: rotate(4deg) translateY(-2px);
+  }
+}
+
+@keyframes rr-scan {
+  from {
+    top: 0;
+  }
+  to {
+    top: calc(100% - 6px);
+  }
+}
+
+@keyframes rr-blink {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .robot-reader .robot-bob,
+  .robot-reader .robot-think,
+  .robot-reader .gibberish,
+  .robot-reader .scan-line,
+  .robot-reader .dots span {
+    animation: none;
+  }
+}

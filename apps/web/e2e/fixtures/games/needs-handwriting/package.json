@@ -1,0 +1,19 @@
+{
+  "name": "@braincade/fixture-needs-handwriting",
+  "version": "0.0.1",
+  "private": true,
+  "braincade": {
+    "id": "needs-handwriting",
+    "title": "Needs Handwriting",
+    "description": "E2E fixture requiring a capability the preview server can't provide.",
+    "icon": "✍️",
+    "engine": "dom",
+    "skills": [
+      "handwriting"
+    ],
+    "requires": [
+      "handwriting"
+    ],
+    "status": "published"
+  }
+}

@@ -1,4 +1,5 @@
 import { type WordList, wordListSchema } from '@braincade/learning';
+import grade5SillySentences from '../word-lists/grade-5-silly-sentences.json';
 import grade5Starter from '../word-lists/grade-5-starter.json';
 
 /**
@@ -6,4 +7,6 @@ import grade5Starter from '../word-lists/grade-5-starter.json';
  * and deploying updates every device. Register new files here; a test fails if
  * a JSON file in word-lists/ is not listed.
  */
-export const wordLists: WordList[] = [grade5Starter].map((list) => wordListSchema.parse(list));
+export const wordLists: WordList[] = [grade5Starter, grade5SillySentences].map((list) =>
+  wordListSchema.parse(list),
+);
