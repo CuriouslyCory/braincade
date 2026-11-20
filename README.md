@@ -27,10 +27,10 @@ pnpm dev:mobile     # Expo; scan the QR code with Expo Go on the phone
 The phone and the computer need to be on the same Wi-Fi network. In development the mobile app loads
 games from the web dev server on the computer running Metro, so run `pnpm dev` too.
 
-Games that read handwriting work out of the box: `pnpm dev` serves `/api/handwriting`, which runs an
-open handwriting model (TrOCR) on your computer's CPU. The first read downloads the model (~65 MB).
-To require an access code, copy `apps/web/.env.example` to `apps/web/.env.local` and set
-`BRAINCADE_ACCESS_CODE`.
+Games that read handwriting work out of the box locally: `pnpm dev` serves `/api/handwriting`, which
+runs an open handwriting model (TrOCR) on your computer's CPU. The first read downloads the model
+(~65 MB). An access code is optional locally (copy `apps/web/.env.example` to `apps/web/.env.local`
+and set `BRAINCADE_ACCESS_CODE`) and required on Vercel (see Deployment).
 
 | Command                     | What it does                                                             |
 | --------------------------- | ------------------------------------------------------------------------ |
@@ -259,14 +259,15 @@ week's missed words.
 - The output is static: `index.html` (launcher), `play.html` (game frame), `catalog.json`, and
   hashed assets. Hash routing means no rewrites are needed. The one exception is the Vercel Function
   `api/handwriting.ts`, the handwriting reader.
-- **Handwriting reader:** needs no setup or API key. The function runs Microsoft's TrOCR model
+- **Handwriting reader:** needs no API key. The function runs Microsoft's TrOCR model
   (`Xenova/trocr-small-handwritten`, pinned revision) on its CPU, downloading it (~65 MB) to `/tmp`
   on a cold start, so the first read after a while takes a few seconds longer. The function bundle
   is about 190 MB, under Vercel's 250 MB limit. Photos are read by your own deployment and are not
-  stored. Because reading uses your Vercel compute, consider setting `BRAINCADE_ACCESS_CODE` (a
-  household passphrase) in the project's Environment Variables; each device then enters it once
-  (web Grown-ups → Robot reader, or the mobile app's Grown-ups screen) before handwriting games
-  turn on.
+  stored. Reading uses your Vercel compute, so **set `BRAINCADE_ACCESS_CODE`** (a household
+  passphrase) in the project's Environment Variables: the reader stays off until it is set, and
+  each device enters it once (web Grown-ups → Robot reader, or the mobile app's Grown-ups screen).
+  Each function instance reads one photo at a time with a short queue, answering "busy" (429)
+  beyond that.
 - `catalog.json` and the HTML pages are served with `must-revalidate`, so a deploy shows up on the
   next app launch, and the hashed assets are cached immutably.
 - **Preview deployments** are how drafts get tested on the phone. If Vercel Deployment Protection
@@ -300,10 +301,10 @@ week's missed words.
   or messy writing. Treat Robot Reader's spelling results as generous until the reader improves
   (options: a character-level model without a language model, or fine-tuning on children's
   writing).
-- **The handwriting endpoint has no rate limit.** An access code keeps strangers out, but anyone
-  who has it can call the reader as fast as they like, using the deployment's compute. Add a Vercel
-  Firewall rate-limit rule for `/api/handwriting` if that matters, and replace the shared code with
-  per-learner auth once the sync backend exists.
+- **The handwriting endpoint has no global rate limit.** The access code keeps strangers out, and
+  each instance reads one photo at a time, but Vercel can start more instances, so anyone with the
+  code can still use a lot of compute. Add a Vercel Firewall rate-limit rule for `/api/handwriting`
+  if that matters, and replace the shared code with per-learner auth once the sync backend exists.
 - **Offline games on mobile:** ship a copy of the web build inside the app, and fall back to it when
   the server can't be reached.
 - **Per-game difficulty settings** on the grown-ups page, passed to games in the session.

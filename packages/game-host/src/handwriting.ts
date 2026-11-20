@@ -81,11 +81,13 @@ export function createHandwritingService(
         throw new HostError(
           response.status === 503
             ? 'unsupported'
-            : response.status === 401
-              ? 'permission-denied'
-              : response.status === 400
-                ? 'bad-request'
-                : 'internal',
+            : response.status === 429
+              ? 'timeout' // busy: the game offers to try again
+              : response.status === 401
+                ? 'permission-denied'
+                : response.status === 400
+                  ? 'bad-request'
+                  : 'internal',
           `Handwriting reader failed: ${message}`,
         );
       }

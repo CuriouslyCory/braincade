@@ -109,6 +109,7 @@ describe('createHandwritingService', () => {
       code: 'unsupported',
       message: expect.stringContaining('not configured'),
     });
+    await expect(read(json({ error: 'busy' }, 429))).rejects.toMatchObject({ code: 'timeout' });
     await expect(read(json({ error: 'wrong code' }, 401))).rejects.toMatchObject({
       code: 'permission-denied',
     });

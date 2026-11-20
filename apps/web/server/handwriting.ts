@@ -28,13 +28,50 @@ export interface HandwritingReading {
 export interface HandwritingHandlerOptions {
   /**
    * `BRAINCADE_ACCESS_CODE`. When set, callers must send it in the access-code header.
-   * Reading is free, but it runs on the deployment's compute, so a public deployment can
-   * keep strangers from using it.
+   * Reading is free per photo, but it runs on the deployment's CPU, so a deployment keeps
+   * strangers who find the URL from using it up.
    */
   accessCode?: string | undefined;
+  /** Treat the reader as off unless `accessCode` is set (deployments). */
+  requireAccessCode?: boolean;
   /** Defaults to the TrOCR reader in trocr.ts, loaded on first use. */
   reader?: HandwritingReader;
+  /** Defaults to one shared limiter per server instance (see createReadLimiter). */
+  limiter?: ReadLimiter;
 }
+
+export interface ReadLimiter {
+  /** A slot to read in (call the release function when done), or null when too busy. */
+  acquire(): Promise<() => void> | null;
+}
+
+/**
+ * Bound the CPU one instance spends reading: `running` reads at a time, up to `waiting`
+ * more queued, and anyone beyond that is told to try again. A slot is released when the
+ * read really finishes, not when the request gives up waiting for it, since the model
+ * keeps computing either way.
+ */
+export function createReadLimiter({ running = 1, waiting = 2 } = {}): ReadLimiter {
+  let active = 0;
+  const queue: Array<() => void> = [];
+  const release = () => {
+    const next = queue.shift();
+    if (next) next();
+    else active--;
+  };
+  return {
+    acquire() {
+      if (active < running) {
+        active++;
+        return Promise.resolve(release);
+      }
+      if (queue.length >= waiting) return null;
+      return new Promise((resolve) => queue.push(() => resolve(release)));
+    },
+  };
+}
+
+const sharedLimiter = createReadLimiter();
 
 /** Compare codes in constant time (hashing first makes the lengths equal). */
 function sameCode(given: string, expected: string): boolean {
@@ -52,7 +89,8 @@ const json = (status: number, body: unknown, headers: Record<string, string> = {
  * The handwriting endpoint (`api/handwriting`), as a plain Request → Response
  * function so the Vercel Function, the Vite dev server, and tests share it.
  *
- * - `GET` → `{ available }`: true unless an access code is set and the caller didn't send it.
+ * - `GET` → `{ available }`: false when an access code is required but not configured, or
+ *   is set and the caller didn't send it.
  * - `POST { image: <data URL> }` → `{ words: [{ text, legible }] }`, read by an open
  *   handwriting model on this server. 401 without the access code.
  */
@@ -60,14 +98,18 @@ export async function handleHandwritingRequest(
   request: Request,
   options: HandwritingHandlerOptions,
 ): Promise<Response> {
+  const configured = Boolean(options.accessCode) || !options.requireAccessCode;
   const authorized =
     !options.accessCode ||
     sameCode(request.headers.get(ACCESS_CODE_HEADER) ?? '', options.accessCode);
   if (request.method === 'GET') {
-    return json(200, { available: authorized });
+    return json(200, { available: configured && authorized });
   }
   if (request.method !== 'POST') {
     return json(405, { error: 'Use GET or POST.' }, { allow: 'GET, POST' });
+  }
+  if (!configured) {
+    return json(503, { error: 'The handwriting reader is off until an access code is set.' });
   }
   // Turn away callers without the code before reading what they sent.
   if (!authorized) {
@@ -94,15 +136,38 @@ export async function handleHandwritingRequest(
     return json(400, { error: 'The image must be a base64 JPEG, PNG, or WebP data URL.' });
   }
 
+  const slot = (options.limiter ?? sharedLimiter).acquire();
+  if (!slot) {
+    return json(
+      429,
+      { error: 'The robot reader is busy. Try again in a moment.' },
+      { 'retry-after': '5' },
+    );
+  }
+
   try {
     const reader = options.reader ?? (await import('./trocr.js')).readHandwriting;
     const bytes = Uint8Array.from(Buffer.from(image[2] as string, 'base64'));
+    let expired = false;
+    const work = slot.then(async (release) => {
+      try {
+        // Gave up while queued: don't start a read nobody is waiting for.
+        if (expired) throw new Error('Gave up waiting for a turn to read');
+        return await reader(bytes);
+      } finally {
+        release();
+      }
+    });
+    work.catch(() => {}); // Handled below; the deadline may win the race.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const deadline = new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => reject(new Error('Reading took too long')), READ_DEADLINE_MS);
+      timer = setTimeout(() => {
+        expired = true;
+        reject(new Error('Reading took too long'));
+      }, READ_DEADLINE_MS);
     });
     try {
-      return json(200, clampReading(await Promise.race([reader(bytes), deadline])));
+      return json(200, clampReading(await Promise.race([work, deadline])));
     } finally {
       clearTimeout(timer);
     }

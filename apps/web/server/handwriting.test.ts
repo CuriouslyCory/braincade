@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ACCESS_CODE_HEADER,
   clampReading,
+  createReadLimiter,
   handleHandwritingRequest,
   MAX_BODY_BYTES,
 } from './handwriting';
@@ -32,6 +33,21 @@ describe('handleHandwritingRequest', () => {
     const response = await handleHandwritingRequest(new Request(ENDPOINT), {});
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ available: true });
+  });
+
+  it('stays off on deployments until an access code is configured', async () => {
+    const reader = readsAs([]);
+    const options = { requireAccessCode: true, reader };
+    const status = await handleHandwritingRequest(new Request(ENDPOINT), options);
+    expect(await status.json()).toEqual({ available: false });
+    expect((await handleHandwritingRequest(post({ image: IMAGE }), options)).status).toBe(503);
+    expect(reader).not.toHaveBeenCalled();
+
+    const on = await handleHandwritingRequest(
+      new Request(ENDPOINT, { headers: { [ACCESS_CODE_HEADER]: 'tacos' } }),
+      { ...options, accessCode: 'tacos' },
+    );
+    expect(await on.json()).toEqual({ available: true });
   });
 
   it('requires the access code when one is set', async () => {
@@ -131,9 +147,64 @@ describe('handleHandwritingRequest', () => {
     vi.useFakeTimers();
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const reader = vi.fn<HandwritingReader>(() => new Promise(() => {}));
-    const response = handleHandwritingRequest(post({ image: IMAGE }), { reader });
+    const response = handleHandwritingRequest(post({ image: IMAGE }), {
+      reader,
+      limiter: createReadLimiter(),
+    });
     await vi.advanceTimersByTimeAsync(40_000);
     expect((await response).status).toBe(502);
+  });
+
+  it('reads one photo at a time, queues a few, and turns the rest away', async () => {
+    const finish: Array<() => void> = [];
+    const reader = vi.fn<HandwritingReader>(
+      () => new Promise((resolve) => finish.push(() => resolve({ words: [] }))),
+    );
+    const options = { reader, limiter: createReadLimiter({ running: 1, waiting: 1 }) };
+    const first = handleHandwritingRequest(post({ image: IMAGE }), options);
+    const second = handleHandwritingRequest(post({ image: IMAGE }), options);
+    const third = await handleHandwritingRequest(post({ image: IMAGE }), options);
+    expect(third.status).toBe(429);
+    expect(third.headers.get('retry-after')).toBe('5');
+
+    await vi.waitFor(() => expect(reader).toHaveBeenCalledTimes(1));
+    finish[0]?.();
+    expect((await first).status).toBe(200);
+    await vi.waitFor(() => expect(reader).toHaveBeenCalledTimes(2));
+    finish[1]?.();
+    expect((await second).status).toBe(200);
+  });
+
+  it('keeps a slot busy until a timed-out read really finishes, and skips abandoned ones', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    let finish: (() => void) | undefined;
+    const reader = vi.fn<HandwritingReader>(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve({ words: [] });
+        }),
+    );
+    const options = { reader, limiter: createReadLimiter({ running: 1, waiting: 1 }) };
+    const slow = handleHandwritingRequest(post({ image: IMAGE }), options);
+    const queued = handleHandwritingRequest(post({ image: IMAGE }), options);
+    await vi.advanceTimersByTimeAsync(40_000);
+    expect((await slow).status).toBe(502);
+    expect((await queued).status).toBe(502);
+
+    // The model is still working on the first photo, so there's no room yet.
+    expect((await handleHandwritingRequest(post({ image: IMAGE }), options)).status).toBe(429);
+
+    finish?.();
+    await vi.advanceTimersByTimeAsync(0);
+    // The queued request gave up, so its turn didn't start a read nobody wanted.
+    expect(reader).toHaveBeenCalledTimes(1);
+
+    const next = handleHandwritingRequest(post({ image: IMAGE }), options);
+    await vi.advanceTimersByTimeAsync(0);
+    finish?.();
+    expect((await next).status).toBe(200);
+    expect(reader).toHaveBeenCalledTimes(2);
   });
 
   it('only allows GET and POST', async () => {
