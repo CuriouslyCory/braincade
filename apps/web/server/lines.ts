@@ -434,6 +434,8 @@ export function findLines(
 
   // Find the writing with tight chains (letters within words), then keep marks on its page.
   const tight = chainRows(letters, 2.5 * typical);
+  // Every mark may turn out to be part of a margin or page edge: then there's no writing.
+  if (tight.length === 0) return { labels, lines: [] };
   const seed = tight.reduce((best, s) => (letterCount(s) > letterCount(best) ? s : best));
   const onPage = rgba ? pageArea(rgba, cleaned, width, height, boxOf(seed.members)) : () => true;
   const centreOnPage = (c: LineBox) => onPage((c.x0 + c.x1) / 2, (c.y0 + c.y1) / 2);

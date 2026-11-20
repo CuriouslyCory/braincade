@@ -60,15 +60,23 @@ function loadModel(): Promise<Model> {
   return loading;
 }
 
-/** Read the handwriting in an encoded image (JPEG, PNG, or WebP). */
-export const readHandwriting: HandwritingReader = async (image) => {
+/** Decode a photo to RGBA pixels: upright, at most MAX_SIDE, transparency on white paper. */
+export async function decodePhoto(image: Uint8Array) {
   const { data, info } = await sharp(image, { failOn: 'none' })
     .rotate() // phone photos carry their orientation in EXIF
     .resize({ width: MAX_SIDE, height: MAX_SIDE, fit: 'inside', withoutEnlargement: true })
+    // A drawing exported as a transparent PNG: its background must read as paper, not as
+    // black (transparent pixels are often stored as black).
+    .flatten({ background: '#ffffff' })
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
-  const { width, height } = info;
+  return { data, width: info.width, height: info.height };
+}
+
+/** Read the handwriting in an encoded image (JPEG, PNG, or WebP). */
+export const readHandwriting: HandwritingReader = async (image) => {
+  const { data, width, height } = await decodePhoto(image);
   // Scale the lighting window with the photo: about a letter's height.
   const window = Math.max(15, Math.round(Math.max(width, height) * 0.022)) | 1;
   const brightness = toBrightness(data, width, height);

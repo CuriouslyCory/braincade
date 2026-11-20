@@ -183,3 +183,16 @@ describe('lineImage', () => {
     expect(pixel(rgb, 0, 0)).toEqual([255, 255, 255]); // away from it: white
   });
 });
+
+describe('findLines without writing', () => {
+  it('returns no lines when every mark belongs to a dashed margin', () => {
+    // A dashed line down the whole photo and nothing else: the end dashes touch the
+    // photo's edge, and every other dash continues the same straight line.
+    const ink = new Uint8Array(W * H);
+    for (let y = -10; y < H; y += 28) {
+      for (let yy = Math.max(0, y); yy < Math.min(H, y + 20); yy++)
+        ink.fill(1, yy * W + 300, yy * W + 306);
+    }
+    expect(findLines(ink, W, H).lines).toEqual([]);
+  });
+});
