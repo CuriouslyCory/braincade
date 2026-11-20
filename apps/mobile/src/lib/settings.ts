@@ -54,20 +54,14 @@ export async function readSettings(
   const plain = settingsSchema.omit({ readerCode: true }).safeParse(stored);
   const serverUrl = plain.success ? plain.data.serverUrl : '';
 
-  // Codes saved by earlier builds lived in the plain settings JSON: move them to secure storage.
-  if (typeof stored.readerCode === 'string') {
-    const legacy = stored.readerCode;
-    const server = serverFor(serverUrl);
-    // Without a server to bind it to, leave the code where it is until there is one.
-    if (!legacy || server) {
-      try {
-        if (legacy && server) await secrets.setItemAsync(READER_CODE_KEY, bind(server, legacy));
-        await store.setItem(KEY, JSON.stringify({ serverUrl }));
-      } catch {
-        // Try again next launch; meanwhile the code is still where it was.
-      }
+  // Pre-release builds kept the code in this plain JSON, without the server it was for, so it
+  // can't be safely tied to one: drop it, and the grown-up enters the code again.
+  if ('readerCode' in stored) {
+    try {
+      await store.setItem(KEY, JSON.stringify({ serverUrl }));
+    } catch {
+      // Dropped again next launch; it is never used either way.
     }
-    return { settings: { serverUrl, readerCode: legacy }, readerCodeUnreadable: false };
   }
 
   let secret: string | null;

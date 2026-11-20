@@ -115,30 +115,6 @@ describe('settings', () => {
     expect((await readSettings(store, secrets, serverFor)).settings.readerCode).toBe('tacos');
   });
 
-  it('moves a code saved by an earlier build into secure storage', async () => {
-    const store = createMemoryStore();
-    const secrets = memorySecrets();
-    store.data.set(SETTINGS_KEY, JSON.stringify({ serverUrl: 'http://a', readerCode: 'tacos' }));
-    expect((await readSettings(store, secrets, serverFor)).settings).toEqual({
-      serverUrl: 'http://a',
-      readerCode: 'tacos',
-    });
-    expect(store.data.get(SETTINGS_KEY)).toBe(JSON.stringify({ serverUrl: 'http://a' }));
-    expect((await readSettings(store, secrets, serverFor)).settings.readerCode).toBe('tacos');
-  });
-
-  it('still starts, with the old code, when the migration write fails', async () => {
-    const store = createMemoryStore();
-    store.data.set(SETTINGS_KEY, JSON.stringify({ serverUrl: 'http://a', readerCode: 'tacos' }));
-    const secrets = { ...memorySecrets(), setItemAsync: fail };
-    expect(await readSettings(store, secrets, serverFor)).toEqual({
-      settings: { serverUrl: 'http://a', readerCode: 'tacos' },
-      readerCodeUnreadable: false,
-    });
-    // Nothing was lost: the next launch can migrate it.
-    expect(store.data.get(SETTINGS_KEY)).toContain('tacos');
-  });
-
   it('binds the code to the server actually in use, not the text in the URL field', async () => {
     const store = createMemoryStore();
     const secrets = memorySecrets();
@@ -198,18 +174,26 @@ describe('settingsToSave', () => {
   });
 });
 
-describe('legacy migration without a server', () => {
-  it('keeps the plain code until there is a server to bind it to', async () => {
+describe('codes saved in plain JSON by pre-release builds', () => {
+  it('are dropped, not migrated, so they never reach an unverified server', async () => {
     const store = createMemoryStore();
     const secrets = memorySecrets();
     store.data.set(SETTINGS_KEY, JSON.stringify({ serverUrl: '', readerCode: 'tacos' }));
-    const noServer: ServerFor = () => null;
-    expect((await readSettings(store, secrets, noServer)).settings.readerCode).toBe('tacos');
-    expect(store.data.get(SETTINGS_KEY)).toContain('tacos');
+    expect(await readSettings(store, secrets, serverFor)).toEqual({
+      settings: { serverUrl: '', readerCode: '' },
+      readerCodeUnreadable: false,
+    });
+    expect(store.data.get(SETTINGS_KEY)).toBe(JSON.stringify({ serverUrl: '' }));
     expect(secrets.data.size).toBe(0);
+  });
 
-    // Once a server resolves, it migrates as usual.
-    expect((await readSettings(store, secrets, serverFor)).settings.readerCode).toBe('tacos');
-    expect(store.data.get(SETTINGS_KEY)).not.toContain('tacos');
+  it('still start when dropping the old code fails', async () => {
+    const store = createMemoryStore();
+    store.data.set(SETTINGS_KEY, JSON.stringify({ serverUrl: 'http://a', readerCode: 'tacos' }));
+    const broken = { ...store, setItem: fail };
+    expect((await readSettings(broken, memorySecrets(), serverFor)).settings).toEqual({
+      serverUrl: 'http://a',
+      readerCode: '',
+    });
   });
 });
