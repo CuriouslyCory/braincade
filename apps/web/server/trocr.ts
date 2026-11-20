@@ -9,7 +9,7 @@ import {
   VisionEncoderDecoderModel,
 } from '@huggingface/transformers';
 import sharp from 'sharp';
-import { findLines, inkMask, lineImage, toGray } from './lines.js';
+import { findLines, inkMask, lineImage, toBrightness } from './lines.js';
 
 // The handwriting reader: Microsoft's TrOCR (small, handwritten), an open model that runs
 // on the function's CPU, so reading a photo costs nothing per call. It reads one line of
@@ -71,14 +71,15 @@ export const readHandwriting: HandwritingReader = async (image) => {
   const { width, height } = info;
   // Scale the lighting window with the photo: about a letter's height.
   const window = Math.max(15, Math.round(Math.max(width, height) * 0.022)) | 1;
-  const ink = inkMask(toGray(data, width, height), width, height, { window });
-  const boxes = findLines(ink, width, height);
-  if (boxes.length === 0) return { words: [] };
+  const brightness = toBrightness(data, width, height);
+  const ink = inkMask(brightness, width, height, { window });
+  const { labels, lines } = findLines(ink, width, height, { rgba: data });
+  if (lines.length === 0) return { words: [] };
 
   const { processor, tokenizer, model } = await loadModel();
   const words: ReadWord[] = [];
-  for (const box of boxes) {
-    const line = lineImage(ink, width, box);
+  for (const found of lines) {
+    const line = lineImage(labels, width, found, brightness);
     const { pixel_values } = await processor(new RawImage(line.rgb, line.width, line.height, 3));
     words.push(...(await readLine(model, tokenizer, pixel_values as Tensor)));
   }
@@ -129,7 +130,10 @@ async function readLine(
       }
     });
   }
-  return words
-    .filter((word) => word.text.trim())
-    .map((word) => ({ text: word.text.trim(), legible: word.confidence >= LEGIBLE_CONFIDENCE }));
+  return (
+    words
+      // Stray marks read as lone punctuation ("." or "'") aren't words the child wrote.
+      .filter((word) => /[\p{L}\p{N}]/u.test(word.text))
+      .map((word) => ({ text: word.text.trim(), legible: word.confidence >= LEGIBLE_CONFIDENCE }))
+  );
 }
